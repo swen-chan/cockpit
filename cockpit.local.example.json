@@ -1,0 +1,81 @@
+{
+  "configRelativePath": "example/config.yaml",
+  "conversation": {
+    "databaseRelativePath": "example/conversations.sqlite",
+    "sessionTable": "example_sessions",
+    "promptTable": "example_prompts",
+    "sessionColumns": {
+      "id": "example_id",
+      "source": "example_source",
+      "title": "example_title",
+      "startedAt": "example_started_at",
+      "endedAt": "example_ended_at",
+      "lastActivityAt": "example_last_activity_at",
+      "messageCount": "example_message_count",
+      "toolCallCount": "example_tool_call_count",
+      "model": "example_model",
+      "profileName": "example_profile_name",
+      "workspace": "example_workspace",
+      "hidden": "example_hidden",
+      "archived": "example_archived",
+      "promptHash": "example_prompt_hash",
+      "embeddedPrompt": "example_embedded_prompt"
+    },
+    "promptColumns": {
+      "hash": "example_hash",
+      "prompt": "example_prompt"
+    },
+    "messages": {
+      "table": "example_messages",
+      "columns": {
+        "id": "example_id",
+        "sessionId": "example_session_id",
+        "role": "example_role",
+        "content": "example_content",
+        "toolName": "example_tool_name",
+        "timestamp": "example_timestamp",
+        "active": "example_active",
+        "compacted": "example_compacted",
+        "displayKind": "example_display_kind"
+      }
+    }
+  },
+  "jobs": {
+    "definitionsRelativePath": "example/jobs.json",
+    "executionsDatabaseRelativePath": "example/job-executions.sqlite",
+    "rootJobsField": "example_jobs",
+    "definitionFields": {
+      "id": "example_id",
+      "name": "example_name",
+      "schedule": "example_schedule",
+      "scheduleDisplay": "example_schedule_display",
+      "createdAt": "example_created_at",
+      "enabled": "example_enabled",
+      "state": "example_state",
+      "lastRunAt": "example_last_run_at",
+      "nextRunAt": "example_next_run_at",
+      "lastStatus": "example_last_status",
+      "failureStreak": "example_failure_streak",
+      "deliver": "example_deliver",
+      "profile": "example_profile",
+      "skill": "example_skill",
+      "skills": "example_skills",
+      "enabledToolsets": "example_enabled_toolsets"
+    },
+    "scheduleFields": {
+      "display": "example_display",
+      "expression": "example_expression",
+      "value": "example_value",
+      "runAt": "example_run_at"
+    },
+    "executionTable": "example_executions",
+    "executionColumns": {
+      "id": "example_id",
+      "jobId": "example_job_id",
+      "status": "example_status",
+      "claimedAt": "example_claimed_at",
+      "startedAt": "example_started_at",
+      "finishedAt": "example_finished_at"
+    }
+  }
+}

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 520" role="img" aria-labelledby="title description">
+  <title id="title">Cockpit</title>
+  <desc id="description">An independent, industrial control-panel banner for a local, read-only Hermes Agent observability interface.</desc>
+
+  <rect width="1600" height="520" fill="#f3f1ea"/>
+  <rect x="2" y="2" width="1596" height="516" fill="none" stroke="#0e0e0e" stroke-width="4"/>
+
+  <rect x="0" y="0" width="1600" height="82" fill="#0e0e0e"/>
+  <path d="M58 41c18-20 38-20 56 0-18 20-38 20-56 0Z" fill="none" stroke="#f3f1ea" stroke-width="3"/>
+  <circle cx="86" cy="41" r="8" fill="#c6ff3d"/>
+  <text x="130" y="50" fill="#f3f1ea" font-family="'IBM Plex Mono', 'SFMono-Regular', monospace" font-size="23" font-weight="500" letter-spacing="3">COCKPIT</text>
+  <text x="1535" y="49" fill="#aaa69c" font-family="'IBM Plex Mono', 'SFMono-Regular', monospace" font-size="15" text-anchor="end" letter-spacing="2">INDEPENDENT / DEVELOPER PREVIEW</text>
+
+  <rect x="0" y="82" width="1600" height="36" fill="#c6ff3d"/>
+  <circle cx="62" cy="100" r="5" fill="#0e0e0e"/>
+  <text x="80" y="106" fill="#0e0e0e" font-family="'IBM Plex Mono', 'SFMono-Regular', monospace" font-size="16" font-weight="500" letter-spacing="3">LOCAL ONLY  ·  READ ONLY  ·  SINGLE USER</text>
+  <text x="1535" y="106" fill="#0e0e0e" font-family="'IBM Plex Mono', 'SFMono-Regular', monospace" font-size="14" text-anchor="end" letter-spacing="2">OBSERVE WITHOUT MUTATION</text>
+
+  <line x1="1010" y1="118" x2="1010" y2="520" stroke="#0e0e0e" stroke-width="2"/>
+
+  <text x="62" y="282" fill="#0e0e0e" font-family="'IBM Plex Sans', 'Avenir Next', sans-serif" font-size="154" font-weight="600" letter-spacing="-8">COCKPIT</text>
+  <text x="70" y="337" fill="#0e0e0e" font-family="'IBM Plex Sans', 'Avenir Next', sans-serif" font-size="31" font-weight="500" letter-spacing="-1">See what your Hermes Agent is doing—</text>
+  <text x="70" y="378" fill="#0e0e0e" font-family="'IBM Plex Sans', 'Avenir Next', sans-serif" font-size="31" font-weight="500" letter-spacing="-1">without changing it.</text>
+
+  <g transform="translate(1055 154)">
+    <text x="0" y="0" fill="#625f59" font-family="'IBM Plex Mono', 'SFMono-Regular', monospace" font-size="14" letter-spacing="2">OBSERVABILITY REGISTER</text>
+    <line x1="0" y1="22" x2="480" y2="22" stroke="#0e0e0e" stroke-width="2"/>
+
+    <g font-family="'IBM Plex Mono', 'SFMono-Regular', monospace" font-size="17" letter-spacing="1.5">
+      <rect x="0" y="46" width="480" height="52" fill="#0e0e0e"/>
+      <rect x="17" y="64" width="15" height="15" fill="#c6ff3d"/>
+      <text x="53" y="80" fill="#f3f1ea">OVERVIEW</text>
+      <text x="456" y="80" fill="#aaa69c" text-anchor="end">COMPOSED</text>
+
+      <line x1="0" y1="116" x2="480" y2="116" stroke="#b9b5a9"/>
+      <rect x="17" y="133" width="15" height="15" fill="#c6ff3d" stroke="#0e0e0e"/>
+      <text x="53" y="149" fill="#0e0e0e">SYSTEM</text>
+      <text x="456" y="149" fill="#625f59" text-anchor="end">CONTEXT</text>
+
+      <line x1="0" y1="169" x2="480" y2="169" stroke="#b9b5a9"/>
+      <rect x="17" y="186" width="15" height="15" fill="#c6ff3d" stroke="#0e0e0e"/>
+      <text x="53" y="202" fill="#0e0e0e">CONVERSATIONS</text>
+      <text x="456" y="202" fill="#625f59" text-anchor="end">HISTORY</text>
+
+      <line x1="0" y1="222" x2="480" y2="222" stroke="#b9b5a9"/>
+      <rect x="17" y="239" width="15" height="15" fill="#c6ff3d" stroke="#0e0e0e"/>
+      <text x="53" y="255" fill="#0e0e0e">FILES</text>
+      <text x="456" y="255" fill="#625f59" text-anchor="end">WORKSPACE</text>
+
+      <line x1="0" y1="275" x2="480" y2="275" stroke="#b9b5a9"/>
+      <rect x="17" y="292" width="15" height="15" fill="#c6ff3d" stroke="#0e0e0e"/>
+      <text x="53" y="308" fill="#0e0e0e">JOBS</text>
+      <text x="456" y="308" fill="#625f59" text-anchor="end">SCHEDULE</text>
+      <line x1="0" y1="328" x2="480" y2="328" stroke="#0e0e0e" stroke-width="2"/>
+    </g>
+  </g>
+</svg>
