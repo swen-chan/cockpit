@@ -116,6 +116,93 @@ const sourceManifestSchema = z.object({
 export type PrivateSourceManifest = z.infer<typeof sourceManifestSchema>;
 export type JobsManifest = z.infer<typeof jobsManifestSchema>;
 
+export const HERMES_SOURCE_PRESET_ID = "hermes-v2026.9.11";
+
+export interface ResolvedSourceManifest {
+  manifest: PrivateSourceManifest;
+  presetId?: typeof HERMES_SOURCE_PRESET_ID;
+}
+
+// Public layout verified against NousResearch/hermes-agent tag v2026.9.11.
+const hermesV2026_9_11Manifest = sourceManifestSchema.parse({
+  configRelativePath: "config.yaml",
+  conversation: {
+    databaseRelativePath: "state.db",
+    sessionTable: "sessions",
+    promptTable: "system_prompts",
+    sessionColumns: {
+      id: "id",
+      source: "source",
+      title: "title",
+      startedAt: "started_at",
+      endedAt: "ended_at",
+      lastActivityAt: "last_activity_at",
+      messageCount: "message_count",
+      toolCallCount: "tool_call_count",
+      model: "model",
+      profileName: "profile_name",
+      workspace: "cwd",
+      hidden: "hidden",
+      archived: "archived",
+      promptHash: "system_prompt_hash",
+      embeddedPrompt: "system_prompt",
+    },
+    promptColumns: { hash: "hash", prompt: "prompt" },
+    messages: {
+      table: "messages",
+      columns: {
+        id: "id",
+        sessionId: "session_id",
+        role: "role",
+        content: "content",
+        toolName: "tool_name",
+        timestamp: "timestamp",
+        active: "active",
+        compacted: "compacted",
+        displayKind: "display_kind",
+      },
+    },
+  },
+  jobs: {
+    definitionsRelativePath: "cron/jobs.json",
+    executionsDatabaseRelativePath: "cron/executions.db",
+    rootJobsField: "jobs",
+    definitionFields: {
+      id: "id",
+      name: "name",
+      schedule: "schedule",
+      scheduleDisplay: "schedule_display",
+      createdAt: "created_at",
+      enabled: "enabled",
+      state: "state",
+      lastRunAt: "last_run_at",
+      nextRunAt: "next_run_at",
+      lastStatus: "last_status",
+      failureStreak: "failure_streak",
+      deliver: "deliver",
+      profile: "profile",
+      skill: "skill",
+      skills: "skills",
+      enabledToolsets: "enabled_toolsets",
+    },
+    scheduleFields: {
+      display: "display",
+      expression: "expr",
+      value: "value",
+      runAt: "run_at",
+    },
+    executionTable: "executions",
+    executionColumns: {
+      id: "id",
+      jobId: "job_id",
+      status: "status",
+      claimedAt: "claimed_at",
+      startedAt: "started_at",
+      finishedAt: "finished_at",
+    },
+  },
+});
+
 const maxManifestBytes = 32 * 1_024;
 
 export function readPrivateSourceManifest(filename: string): PrivateSourceManifest {
@@ -138,4 +225,25 @@ export function readPrivateSourceManifest(filename: string): PrivateSourceManife
       try { closeSync(descriptor); } catch {}
     }
   }
+}
+
+export function resolveSourceManifest(
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+  supplied?: PrivateSourceManifest,
+): ResolvedSourceManifest {
+  if (supplied) return { manifest: supplied };
+
+  const filename = environment.COCKPIT_SOURCE_MANIFEST?.trim();
+  const presetId = environment.COCKPIT_SOURCE_PRESET?.trim();
+  if (filename && presetId) throw new SourceSecurityError("source_malformed");
+  if (filename) return { manifest: readPrivateSourceManifest(filename) };
+  if (!presetId) throw new SourceSecurityError("missing_source");
+  if (presetId !== HERMES_SOURCE_PRESET_ID) {
+    throw new SourceSecurityError("unsupported_source_version");
+  }
+
+  return {
+    manifest: hermesV2026_9_11Manifest,
+    presetId: HERMES_SOURCE_PRESET_ID,
+  };
 }

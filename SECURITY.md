@@ -23,6 +23,11 @@ It must run without elevated privileges; elevated execution is unsupported.
 LAN exposure, port forwarding, tunnels, reverse proxies, cloud hosting, and
 mutually untrusted users are outside the supported boundary.
 
+`COCKPIT_SOURCE_PRESET`, `COCKPIT_SOURCE_MANIFEST`, `COCKPIT_HERMES_HOME`,
+`HERMES_HOME`, and `COCKPIT_WORKSPACE_ROOT` are trusted, operator-controlled
+startup configuration. They cannot be selected through the browser or an HTTP
+request.
+
 Examples of in-scope security issues include:
 
 - credentials or non-allowlisted private data reaching logs or browser DTOs;

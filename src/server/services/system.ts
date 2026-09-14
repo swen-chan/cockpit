@@ -21,11 +21,14 @@ import { readSystemPrompt, unavailableSystemPrompt } from "@/server/adapters/sys
 import { resolveHermesContextFromEnvironment, type HermesContext } from "@/server/config/hermes-context";
 import { resolveCockpitRuntimeConfig } from "@/server/config/runtime";
 import {
-  readPrivateSourceManifest,
+  resolveSourceManifest,
   type PrivateSourceManifest,
 } from "@/server/config/source-manifest";
-import { classifySourceError } from "@/server/security/errors";
-import { SourceSecurityError } from "@/server/security/errors";
+import {
+  classifySourceError,
+  SourceSecurityError,
+  type SafeErrorCode,
+} from "@/server/security/errors";
 
 export type SystemPageData = SystemSnapshot;
 
@@ -88,14 +91,16 @@ const workspaceSpecs = [
 function resolveManifest(
   environment: Readonly<Record<string, string | undefined>>,
   supplied: PrivateSourceManifest | undefined,
-): { manifest?: PrivateSourceManifest; state: "ready" | "unavailable" | "error" } {
-  if (supplied) return { manifest: supplied, state: "ready" };
-  const filename = environment.COCKPIT_SOURCE_MANIFEST?.trim();
-  if (!filename) return { state: "unavailable" };
+): {
+  code?: SafeErrorCode;
+  manifest?: PrivateSourceManifest;
+  state: "ready" | "unavailable" | "error";
+} {
   try {
-    return { manifest: readPrivateSourceManifest(filename), state: "ready" };
+    return { ...resolveSourceManifest(environment, supplied), state: "ready" };
   } catch (error) {
-    return { state: classifySourceError(error) === "missing_source" ? "unavailable" : "error" };
+    const code = classifySourceError(error);
+    return { code, state: code === "missing_source" ? "unavailable" : "error" };
   }
 }
 
@@ -174,7 +179,7 @@ async function readCoreSystemSources({
     ? await readSystemPrompt(context, manifestResult.manifest.conversation, now)
     : unavailableSystemPrompt(
       manifestResult.state === "error" ? "error" : "unavailable",
-      context ? "source_manifest_unavailable" : "profile_unavailable",
+      context ? manifestResult.code ?? "source_manifest_unavailable" : "profile_unavailable",
       now,
     );
 

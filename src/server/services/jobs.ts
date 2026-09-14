@@ -8,7 +8,7 @@ import { readJobDefinitions, readRecentJobExecutions, type JobExecutionHistory }
 import { sourceStateForCode } from "@/server/adapters/safe-values";
 import { resolveHermesContextFromEnvironment, type HermesContext } from "@/server/config/hermes-context";
 import {
-  readPrivateSourceManifest,
+  resolveSourceManifest,
   type JobsManifest,
   type PrivateSourceManifest,
 } from "@/server/config/source-manifest";
@@ -46,11 +46,7 @@ function resolveContext(options: LoadJobsOptions): HermesContext {
 
 function resolveJobsManifest(options: LoadJobsOptions): JobsManifest {
   const environment = options.environment ?? process.env;
-  const sourceManifest = options.manifest ?? (() => {
-    const filename = environment.COCKPIT_SOURCE_MANIFEST?.trim();
-    if (!filename) throw new SourceSecurityError("missing_source");
-    return readPrivateSourceManifest(filename);
-  })();
+  const sourceManifest = resolveSourceManifest(environment, options.manifest).manifest;
   if (!sourceManifest.jobs) throw new SourceSecurityError("source_malformed");
   return sourceManifest.jobs;
 }

@@ -16,9 +16,10 @@ sending messages, editing files, controlling jobs, or creating a second
 application database.
 
 > [!IMPORTANT]
-> **v0.1 is a developer preview.** It has been validated against one local
-> Hermes data layout and currently requires an explicit private source manifest.
-> It is not a universal Hermes installer.
+> **v0.1 is a developer preview.** Its built-in source preset targets the
+> published local data layout of [Hermes Agent v0.21.2](https://github.com/NousResearch/hermes-agent/releases/tag/v2026.9.11)
+> (release `v2026.9.11`) and is tested with synthetic data. It is not a
+> universal Hermes installer or an automatic source-discovery tool.
 
 Cockpit is an independent open-source project. It is not affiliated with or
 endorsed by [Nous Research](https://nousresearch.com/) or the
@@ -43,7 +44,7 @@ local to the affected section instead of taking down the entire interface.
 
 - Node.js 24 or newer
 - pnpm 10.28.1
-- A compatible local Hermes data layout
+- Hermes Agent v0.21.2 (`v2026.9.11`), or a custom source manifest
 
 Clone and install:
 
@@ -51,21 +52,20 @@ Clone and install:
 git clone https://github.com/swen-chan/cockpit.git
 cd cockpit
 pnpm install
-cp cockpit.local.example.json cockpit.local.json
 ```
-
-The copied manifest is a synthetic structure template. Edit it so its relative
-paths, table names, and field names match your local Hermes layout. The real
-`cockpit.local.json` is ignored by Git.
 
 Create an ignored `.env.local`:
 
 ```dotenv
 COCKPIT_WORKSPACE_ROOT=/absolute/path/to/your/hermes/workspace
-COCKPIT_SOURCE_MANIFEST=/absolute/path/to/cockpit/cockpit.local.json
+COCKPIT_SOURCE_PRESET=hermes-v2026.9.11
 # Optional: explicitly select a custom or named Hermes home.
 # COCKPIT_HERMES_HOME=/absolute/path/to/your/.hermes/profiles/profile-name
 ```
+
+The preset supplies Cockpit's database, table, and field mappings. You still
+choose `COCKPIT_WORKSPACE_ROOT` explicitly because it grants Files access to
+that directory; Cockpit never infers this permission from conversation data.
 
 Start Cockpit:
 
@@ -82,12 +82,20 @@ for `localhost`, `127.0.0.1`, and `::1`.
 > proxy. It is designed for one trusted operator on the same machine.
 
 <details>
-<summary><strong>Configuration and manifest notes</strong></summary>
+<summary><strong>Custom layouts and configuration notes</strong></summary>
 
-`cockpit.local.json` maps Cockpit's allowlisted fields to local configuration,
-conversation, job-definition, and execution-ledger sources. Never commit the
-real manifest, `.env.local`, credentials, database files, or local source
-content.
+If your Hermes layout is not the supported preset, copy
+`cockpit.local.example.json` to the ignored `cockpit.local.json`, replace its
+synthetic mappings with your local layout, and set:
+
+```dotenv
+COCKPIT_SOURCE_MANIFEST=/absolute/path/to/this/checkout/cockpit.local.json
+```
+
+Set exactly one of `COCKPIT_SOURCE_PRESET` and `COCKPIT_SOURCE_MANIFEST`.
+Cockpit never combines them or falls back from an invalid explicit choice.
+Never commit the real manifest, `.env.local`, credentials, database files, or
+local source content.
 
 `promptTable` and `promptColumns` are an optional pair and require
 `sessionColumns.promptHash`. The complete `messages` and `jobs` groups can be
@@ -157,8 +165,9 @@ The implemented requirements, technical design, and acceptance history live in
 <summary><strong>Known limitations</strong></summary>
 
 - v0.1 supports one trusted local operator and has no authentication or TLS.
-- The synthetic manifest is a structure template, not automatic source
-  discovery. It must be mapped to a compatible local Hermes data layout.
+- The built-in preset targets Hermes Agent v0.21.2 release `v2026.9.11`.
+  Other layouts require the advanced custom manifest and remain best-effort
+  developer integrations.
 - Independent source reads may show different observation times while Hermes is
   changing; Cockpit does not create a canonical snapshot.
 - Lists and previews are deliberately bounded. Unsupported, binary, and

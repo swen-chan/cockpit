@@ -1,6 +1,7 @@
-import { mkdirSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
+import Database from "better-sqlite3";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import * as conversationRoute from "@/app/api/conversations/[id]/route";
@@ -21,6 +22,10 @@ import {
   workspaceDirectorySchema,
   workspaceFileSchema,
 } from "@/contracts/source-result";
+import {
+  HERMES_SOURCE_PRESET_ID,
+  resolveSourceManifest,
+} from "@/server/config/source-manifest";
 import {
   assertHermesFixtureSourcesUnchanged,
   createHermesFixture,
@@ -60,7 +65,9 @@ describe("GET API security boundary with synthetic local sources", () => {
   it("returns strict private responses without forwarding credentials or mutating fixture sources", async () => {
     const fixture = createHermesFixture("cockpit-api-security-");
     fixtures.push(fixture);
+    vi.stubEnv("COCKPIT_SOURCE_MANIFEST", "");
     for (const [name, value] of Object.entries(fixture.environment)) vi.stubEnv(name, value);
+    expect(fixture.environment).not.toHaveProperty("COCKPIT_SOURCE_MANIFEST");
     const sourceSnapshot = snapshotHermesFixtureSources(fixture);
     const base = "http://127.0.0.1:3000";
 
@@ -139,8 +146,17 @@ describe("GET API security boundary with synthetic local sources", () => {
       expect(nestedFile.content).toContain("nested-file-marker");
       expect(jobs).toMatchObject({ definitionsState: "ready", executionsState: "ready" });
       expect(jobs.jobs).toHaveLength(2);
+      expect(jobs.jobs[0]).toMatchObject({
+        lastStatus: "success",
+        schedule: "Daily at 09:00",
+      });
       expect(jobs.jobs[0]?.executions).toHaveLength(1);
-      expect(jobs.jobs[1]).toMatchObject({ name: "Synthetic job 2", recordedAttempts: 1 });
+      expect(jobs.jobs[1]).toMatchObject({
+        lastStatus: "failed",
+        name: "Synthetic job 2",
+        recordedAttempts: 1,
+        schedule: "30 14 * * *",
+      });
       for (const section of [
         overview.profile,
         overview.conversations,
@@ -166,6 +182,70 @@ describe("GET API security boundary with synthetic local sources", () => {
       });
       for (const marker of forbiddenHermesFixtureMarkers) expect(serialized).not.toContain(marker);
       for (const marker of privateHermesFixturePersistenceMarkers) expect(serialized).not.toContain(marker);
+    } finally {
+      assertHermesFixtureSourcesUnchanged(sourceSnapshot);
+    }
+  });
+
+  it("uses an explicit private manifest without exposing its mapping names", async () => {
+    const fixture = createHermesFixture("cockpit-private-manifest-");
+    fixtures.push(fixture);
+    const privateDatabaseName = "private-conversation-store-marker.sqlite";
+    const privateDatabasePath = path.join(fixture.home, privateDatabaseName);
+    copyFileSync(fixture.databaseFiles[0]!, privateDatabasePath);
+    const database = new Database(privateDatabasePath, { fileMustExist: true });
+    database.exec(`
+      CREATE VIEW private_session_records_marker AS SELECT * FROM sessions;
+      CREATE VIEW private_message_records_marker AS SELECT * FROM messages;
+      CREATE VIEW private_prompt_records_marker AS SELECT * FROM system_prompts;
+    `);
+    database.close();
+
+    const presetManifest = resolveSourceManifest({
+      COCKPIT_SOURCE_PRESET: HERMES_SOURCE_PRESET_ID,
+    }).manifest;
+    const manifestPath = path.join(fixture.root, "private-source-manifest-marker.json");
+    writeFileSync(manifestPath, JSON.stringify({
+      ...presetManifest,
+      conversation: {
+        ...presetManifest.conversation,
+        databaseRelativePath: privateDatabaseName,
+        messages: {
+          ...presetManifest.conversation.messages,
+          table: "private_message_records_marker",
+        },
+        promptTable: "private_prompt_records_marker",
+        sessionTable: "private_session_records_marker",
+      },
+    }), "utf8");
+
+    for (const [name, value] of Object.entries(fixture.environment)) vi.stubEnv(name, value);
+    vi.stubEnv("COCKPIT_SOURCE_PRESET", "");
+    vi.stubEnv("COCKPIT_SOURCE_MANIFEST", manifestPath);
+    const sourceSnapshot = snapshotHermesFixtureSources(fixture);
+    const base = "http://127.0.0.1:3000";
+
+    try {
+      const conversations = conversationPageSchema.parse(await readSafeJson(
+        await conversationsRoute.GET(new Request(`${base}/api/conversations?limit=5`)),
+      ));
+      const system = systemSnapshotSchema.parse(await readSafeJson(
+        await systemRoute.GET(new Request(`${base}/api/system`)),
+      ));
+      const prompt = system.sources.find((source) => source.id === "prompt");
+      expect(conversations.items).toHaveLength(5);
+      expect(prompt?.stamp.state).toBe("ready");
+
+      const serialized = JSON.stringify({ conversations, system });
+      for (const marker of [
+        privateDatabaseName,
+        "private_session_records_marker",
+        "private_message_records_marker",
+        "private_prompt_records_marker",
+        path.basename(manifestPath),
+      ]) {
+        expect(serialized).not.toContain(marker);
+      }
     } finally {
       assertHermesFixtureSourcesUnchanged(sourceSnapshot);
     }
@@ -214,14 +294,14 @@ describe("GET API security boundary with synthetic local sources", () => {
 
     rmSync(existingShmPath);
     expect(() => assertHermesFixtureSourcesUnchanged(sourceSnapshot)).toThrow(
-      /home\/conversation-store\.sqlite-shm: removed/u,
+      /home\/state\.db-shm: removed/u,
     );
     writeFileSync(existingShmPath, "restored coordination", "utf8");
 
     rmSync(createdShmPath);
     mkdirSync(createdShmPath);
     expect(() => assertHermesFixtureSourcesUnchanged(sourceSnapshot)).toThrow(
-      /home\/scheduler\/executions\.sqlite-shm: not a regular file/u,
+      /home\/cron\/executions\.db-shm: not a regular file/u,
     );
     rmSync(createdShmPath, { recursive: true });
 
@@ -231,13 +311,13 @@ describe("GET API security boundary with synthetic local sources", () => {
     rmSync(walPath);
     mkdirSync(walPath);
     expect(() => assertHermesFixtureSourcesUnchanged(sourceSnapshot)).toThrow(
-      /home\/conversation-store\.sqlite-wal: not a regular file/u,
+      /home\/state\.db-wal: not a regular file/u,
     );
     rmSync(walPath, { recursive: true });
 
     writeFileSync(walPath, "unexpected WAL content", "utf8");
     expect(() => assertHermesFixtureSourcesUnchanged(sourceSnapshot)).toThrow(
-      /home\/conversation-store\.sqlite-wal: created/u,
+      /home\/state\.db-wal: created/u,
     );
 
     writeFileSync(walPath, "", "utf8");
