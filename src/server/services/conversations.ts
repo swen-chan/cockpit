@@ -6,8 +6,11 @@ import path from "node:path";
 import type { Conversation, ConversationPage } from "@/contracts/cockpit";
 import { readConversationPage, readConversationTranscript } from "@/server/adapters/conversations";
 import { resolveHermesContextFromEnvironment, type HermesContext } from "@/server/config/hermes-context";
-import { readPrivateSourceManifest, type PrivateSourceManifest } from "@/server/config/source-manifest";
-import { SourceSecurityError, toSafeDiagnostic, type SafeDiagnostic } from "@/server/security/errors";
+import {
+  resolveSourceManifest,
+  type PrivateSourceManifest,
+} from "@/server/config/source-manifest";
+import { toSafeDiagnostic, type SafeDiagnostic } from "@/server/security/errors";
 
 export interface LoadConversationOptions {
   environment?: Readonly<Record<string, string | undefined>>;
@@ -36,10 +39,7 @@ function resolveSource(options: LoadConversationOptions): {
     environment,
     ...(explicitHome ? { explicitHome } : {}),
   });
-  if (options.manifest) return { context, manifest: options.manifest };
-  const manifestPath = environment.COCKPIT_SOURCE_MANIFEST?.trim();
-  if (!manifestPath) throw new SourceSecurityError("missing_source");
-  return { context, manifest: readPrivateSourceManifest(manifestPath) };
+  return { context, ...resolveSourceManifest(environment, options.manifest) };
 }
 
 export async function loadConversationPage(

@@ -148,4 +148,25 @@ describe("System page service", () => {
     expect(data.sources.find((source) => source.id === "soul")?.stamp.state).toBe("ready");
     expect(data.sources.find((source) => source.id === "providers")?.stamp.state).toBe("ready");
   });
+
+  it("preserves the safe resolver code when an explicit preset is unsupported", async () => {
+    const { home, workspace } = fixture();
+    const sources = await loadCoreSystemSources({
+      environment: {
+        COCKPIT_HERMES_HOME: home,
+        COCKPIT_SOURCE_PRESET: "unsupported-layout",
+        COCKPIT_WORKSPACE_ROOT: workspace,
+      },
+      platformRoot: home,
+    });
+
+    const prompt = sources.find((source) => source.id === "prompt");
+    expect(prompt?.stamp.state).toBe("error");
+    expect(prompt?.metadata).toContainEqual(expect.objectContaining({
+      label: "Diagnostic",
+      value: "unsupported_source_version",
+    }));
+    expect(prompt?.content).toContain("not supported");
+    expect(sources.find((source) => source.id === "memory")?.stamp.state).toBe("ready");
+  });
 });

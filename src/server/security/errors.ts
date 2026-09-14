@@ -9,6 +9,7 @@ export type SafeErrorCode =
   | "source_busy"
   | "source_too_large"
   | "source_malformed"
+  | "unsupported_source_version"
   | "source_unavailable";
 
 const publicMessages: Record<SafeErrorCode, string> = {
@@ -20,6 +21,7 @@ const publicMessages: Record<SafeErrorCode, string> = {
   source_busy: "The local source is temporarily busy.",
   source_too_large: "The local source is too large to inspect safely.",
   source_malformed: "The local source could not be safely interpreted.",
+  unsupported_source_version: "The selected source preset is not supported.",
   source_unavailable: "The local source could not be read.",
 };
 

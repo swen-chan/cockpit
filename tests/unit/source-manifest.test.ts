@@ -4,7 +4,11 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { readPrivateSourceManifest } from "@/server/config/source-manifest";
+import {
+  HERMES_SOURCE_PRESET_ID,
+  readPrivateSourceManifest,
+  resolveSourceManifest,
+} from "@/server/config/source-manifest";
 
 function collectStringValues(value: unknown): string[] {
   if (typeof value === "string") return [value];
@@ -120,6 +124,45 @@ describe("private source manifest", () => {
       conversation: { sessionTable: "conversation_records" },
       jobs: { rootJobsField: "task_items", executionTable: "attempt_records" },
     });
+  });
+
+  it("resolves the explicit Hermes compatibility preset without a private manifest", () => {
+    const resolved = resolveSourceManifest({ COCKPIT_SOURCE_PRESET: HERMES_SOURCE_PRESET_ID });
+
+    expect(resolved).toMatchObject({
+      presetId: HERMES_SOURCE_PRESET_ID,
+      manifest: {
+        configRelativePath: "config.yaml",
+        conversation: {
+          databaseRelativePath: "state.db",
+          sessionTable: "sessions",
+          messages: { table: "messages" },
+        },
+        jobs: {
+          definitionsRelativePath: "cron/jobs.json",
+          executionsDatabaseRelativePath: "cron/executions.db",
+          executionTable: "executions",
+        },
+      },
+    });
+  });
+
+  it("requires exactly one source configuration and never falls back from an invalid choice", () => {
+    const filename = writeManifest(validManifest());
+
+    expect(() => resolveSourceManifest({})).toThrowError(
+      expect.objectContaining({ code: "missing_source" }),
+    );
+    expect(() => resolveSourceManifest({ COCKPIT_SOURCE_PRESET: "unknown-layout" })).toThrowError(
+      expect.objectContaining({ code: "unsupported_source_version" }),
+    );
+    expect(() => resolveSourceManifest({
+      COCKPIT_SOURCE_MANIFEST: filename,
+      COCKPIT_SOURCE_PRESET: HERMES_SOURCE_PRESET_ID,
+    })).toThrowError(expect.objectContaining({ code: "source_malformed" }));
+    expect(() => resolveSourceManifest({
+      COCKPIT_SOURCE_MANIFEST: path.join(path.dirname(filename), "missing.json"),
+    })).toThrowError(expect.objectContaining({ code: "missing_source" }));
   });
 
   it.each([

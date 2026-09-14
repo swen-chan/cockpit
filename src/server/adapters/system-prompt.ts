@@ -63,9 +63,11 @@ export function unavailableSystemPrompt(
     title: "System Prompt",
     category: "Prompt snapshot",
     summary: "The prompt snapshot used by the latest eligible conversation.",
-    content: state === "unavailable"
-      ? "No eligible System Prompt snapshot is available for the resolved profile."
-      : "Cockpit could not safely read the latest System Prompt snapshot.",
+    content: code === "unsupported_source_version"
+      ? "The selected Cockpit source preset is not supported."
+      : state === "unavailable"
+        ? "No eligible System Prompt snapshot is available for the resolved profile."
+        : "Cockpit could not safely read the latest System Prompt snapshot.",
     stamp: {
       id: "system-prompt",
       label: "Conversation source",

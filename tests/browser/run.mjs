@@ -29,6 +29,7 @@ try {
       ...process.env,
       ...fixture.environment,
       COCKPIT_E2E_SYNTHETIC: "1",
+      COCKPIT_SOURCE_MANIFEST: "",
     },
     stdio: "inherit",
   });

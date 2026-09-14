@@ -15,86 +15,7 @@ import path from "node:path";
 
 import Database from "better-sqlite3";
 
-import type { PrivateSourceManifest } from "@/server/config/source-manifest";
-
-export const hermesFixtureManifest: PrivateSourceManifest = {
-  configRelativePath: "settings.yaml",
-  conversation: {
-    databaseRelativePath: "conversation-store.sqlite",
-    sessionTable: "conversation_records",
-    promptTable: "snapshot_records",
-    sessionColumns: {
-      id: "record_id",
-      source: "origin_kind",
-      title: "headline",
-      startedAt: "created_time",
-      endedAt: "finished_time",
-      lastActivityAt: "last_seen",
-      messageCount: "visible_count",
-      toolCallCount: "tool_count",
-      model: "model_name",
-      profileName: "profile_name",
-      workspace: "work_dir",
-      hidden: "is_hidden",
-      archived: "is_archived",
-      promptHash: "snapshot_ref",
-      embeddedPrompt: "legacy_body",
-    },
-    promptColumns: { hash: "fingerprint", prompt: "body" },
-    messages: {
-      table: "message_records",
-      columns: {
-        id: "message_id",
-        sessionId: "conversation_ref",
-        role: "speaker",
-        content: "body",
-        toolName: "tool_label",
-        timestamp: "occurred_at",
-        active: "is_active",
-        compacted: "is_compacted",
-        displayKind: "view_kind",
-      },
-    },
-  },
-  jobs: {
-    definitionsRelativePath: "scheduler/jobs.json",
-    executionsDatabaseRelativePath: "scheduler/executions.sqlite",
-    rootJobsField: "task_items",
-    definitionFields: {
-      id: "task_key",
-      name: "display_name",
-      schedule: "cadence_spec",
-      scheduleDisplay: "cadence_label",
-      createdAt: "added_time",
-      enabled: "is_enabled",
-      state: "lifecycle_state",
-      lastRunAt: "previous_time",
-      nextRunAt: "upcoming_time",
-      lastStatus: "result_state",
-      failureStreak: "consecutive_failures",
-      deliver: "delivery_target",
-      profile: "profile_alias",
-      skill: "single_capability",
-      skills: "capability_list",
-      enabledToolsets: "toolset_list",
-    },
-    scheduleFields: {
-      display: "label_text",
-      expression: "cron_expression",
-      value: "raw_value",
-      runAt: "scheduled_time",
-    },
-    executionTable: "attempt_records",
-    executionColumns: {
-      id: "attempt_key",
-      jobId: "task_ref",
-      status: "attempt_state",
-      claimedAt: "claimed_time",
-      startedAt: "begin_time",
-      finishedAt: "end_time",
-    },
-  },
-};
+const hermesFixtureSourcePresetId = "hermes-v2026.9.11";
 
 export const forbiddenHermesFixtureMarkers = [
   "CONFIG_CREDENTIAL_MARKER",
@@ -123,22 +44,15 @@ export const forbiddenHermesFixtureMarkers = [
 ] as const;
 
 export const privateHermesFixturePersistenceMarkers = [
-  "source-manifest.json",
-  "settings.yaml",
-  "conversation-store.sqlite",
-  "conversation_records",
-  "message_records",
-  "snapshot_records",
-  "scheduler/jobs.json",
-  "scheduler/executions.sqlite",
-  "attempt_records",
+  "state.db",
+  "cron/jobs.json",
+  "cron/executions.db",
 ] as const;
 
 export interface HermesFixture {
   databaseFiles: string[];
   environment: Record<string, string>;
   home: string;
-  manifestPath: string;
   root: string;
   workspace: string;
 }
@@ -160,58 +74,60 @@ export interface HermesFixtureSourceSnapshot {
 }
 
 function writeConversationSources(home: string): string {
-  const databasePath = path.join(home, hermesFixtureManifest.conversation.databaseRelativePath);
+  const databasePath = path.join(home, "state.db");
   const database = new Database(databasePath);
   database.exec(`
-    CREATE TABLE conversation_records (
-      record_id TEXT PRIMARY KEY,
-      origin_kind TEXT NOT NULL,
-      headline TEXT,
-      created_time REAL NOT NULL,
-      finished_time REAL,
-      last_seen REAL,
-      visible_count INTEGER,
-      tool_count INTEGER,
-      model_name TEXT,
+    CREATE TABLE schema_version (version INTEGER NOT NULL);
+    INSERT INTO schema_version VALUES (30);
+    CREATE TABLE sessions (
+      id TEXT PRIMARY KEY,
+      source TEXT NOT NULL,
+      title TEXT,
+      started_at REAL NOT NULL,
+      ended_at REAL,
+      last_activity_at REAL,
+      message_count INTEGER,
+      tool_call_count INTEGER,
+      model TEXT,
       profile_name TEXT,
-      work_dir TEXT,
-      is_hidden INTEGER NOT NULL DEFAULT 0,
-      is_archived INTEGER NOT NULL DEFAULT 0,
-      snapshot_ref TEXT,
-      legacy_body TEXT,
-      raw_origin_json TEXT
+      cwd TEXT,
+      hidden INTEGER NOT NULL DEFAULT 0,
+      archived INTEGER NOT NULL DEFAULT 0,
+      system_prompt_hash TEXT,
+      system_prompt TEXT,
+      origin_json TEXT
     );
-    CREATE TABLE message_records (
-      message_id INTEGER PRIMARY KEY,
-      conversation_ref TEXT NOT NULL,
-      speaker TEXT NOT NULL,
-      body TEXT,
-      tool_label TEXT,
-      occurred_at REAL NOT NULL,
-      is_active INTEGER NOT NULL DEFAULT 1,
-      is_compacted INTEGER NOT NULL DEFAULT 0,
-      view_kind TEXT,
+    CREATE TABLE messages (
+      id INTEGER PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT,
+      tool_name TEXT,
+      timestamp REAL NOT NULL,
+      active INTEGER NOT NULL DEFAULT 1,
+      compacted INTEGER NOT NULL DEFAULT 0,
+      display_kind TEXT,
       reasoning TEXT,
       api_payload TEXT,
-      raw_calls TEXT
+      tool_calls TEXT
     );
-    CREATE TABLE snapshot_records (
-      fingerprint TEXT PRIMARY KEY,
-      body TEXT NOT NULL,
+    CREATE TABLE system_prompts (
+      hash TEXT PRIMARY KEY,
+      prompt TEXT NOT NULL,
       raw_metadata TEXT
     );
   `);
-  database.prepare("INSERT INTO snapshot_records VALUES (?, ?, ?)").run(
+  database.prepare("INSERT INTO system_prompts VALUES (?, ?, ?)").run(
     "abcdef1234567890",
     "# Runtime prompt\n\napi_key: SYSTEM_PROMPT_CREDENTIAL_MARKER",
     "RAW_PROMPT_METADATA_MARKER",
   );
 
   const insertConversation = database.prepare(
-    "INSERT INTO conversation_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   );
   const insertMessage = database.prepare(
-    "INSERT INTO message_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO messages VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
   );
   const latestActivity = 1_788_886_980;
   for (let index = 1; index <= 6; index += 1) {
@@ -292,22 +208,23 @@ function fixtureJob(index: number): Record<string, unknown> {
   const previousDay = String(8 + index).padStart(2, "0");
   const upcomingDay = String(10 + index).padStart(2, "0");
   return {
-    task_key: `job-safe-${index}`,
-    display_name: `Synthetic job ${index}`,
-    cadence_spec: { cron_expression: index === 1 ? "0 9 * * *" : "30 14 * * *" },
-    cadence_label: index === 1 ? "Daily at 09:00" : "Daily at 14:30",
-    added_time: `2026-09-0${index}T01:00:00Z`,
-    is_enabled: true,
-    lifecycle_state: "enabled",
-    previous_time: `2026-09-${previousDay}T01:00:00Z`,
-    upcoming_time: `2026-09-${upcomingDay}T01:00:00Z`,
-    result_state: index === 1 ? "success" : "failed",
-    consecutive_failures: index === 1 ? 0 : 1,
-    delivery_target: index === 1 ? "telegram:PRIVATE_RECIPIENT_MARKER" : "local",
-    profile_alias: "default",
-    single_capability: "fixture-skill",
-    capability_list: ["fixture-skill"],
-    toolset_list: ["file"],
+    id: `job-safe-${index}`,
+    name: `Synthetic job ${index}`,
+    schedule: index === 1
+      ? { kind: "cron", expr: "0 9 * * *", display: "Daily at 09:00" }
+      : { expr: "30 14 * * *" },
+    ...(index === 1 ? { schedule_display: "Daily at 09:00" } : {}),
+    created_at: `2026-09-0${index}T01:00:00Z`,
+    enabled: true,
+    state: "scheduled",
+    last_run_at: `2026-09-${previousDay}T01:00:00Z`,
+    next_run_at: `2026-09-${upcomingDay}T01:00:00Z`,
+    last_status: index === 1 ? "ok" : "error",
+    failure_streak: index === 1 ? 0 : 1,
+    deliver: index === 1 ? "telegram:PRIVATE_RECIPIENT_MARKER" : "local",
+    skill: "fixture-skill",
+    skills: ["fixture-skill"],
+    enabled_toolsets: ["file"],
     prompt: `RAW_JOB_PROMPT_MARKER_${index}`,
     script: `RAW_JOB_SCRIPT_MARKER_${index}`,
     credentials: { api_key: "CONFIG_CREDENTIAL_MARKER" },
@@ -315,30 +232,29 @@ function fixtureJob(index: number): Record<string, unknown> {
 }
 
 function writeJobSources(home: string): { databasePath: string; definitionsPath: string } {
-  const jobsManifest = hermesFixtureManifest.jobs!;
-  const definitionsPath = path.join(home, jobsManifest.definitionsRelativePath);
+  const definitionsPath = path.join(home, "cron", "jobs.json");
   writeFileSync(definitionsPath, JSON.stringify({
-    task_items: [fixtureJob(1), fixtureJob(2)],
+    jobs: [fixtureJob(1), fixtureJob(2)],
     raw_root: "RAW_JOBS_ROOT_MARKER",
   }), "utf8");
 
-  const databasePath = path.join(home, jobsManifest.executionsDatabaseRelativePath);
+  const databasePath = path.join(home, "cron", "executions.db");
   const database = new Database(databasePath);
   database.exec(`
-    CREATE TABLE attempt_records (
-      attempt_key TEXT PRIMARY KEY,
-      task_ref TEXT NOT NULL,
-      attempt_state TEXT,
-      claimed_time TEXT,
-      begin_time TEXT,
-      end_time TEXT,
-      private_error TEXT,
-      process_ref TEXT,
+    CREATE TABLE executions (
+      id TEXT PRIMARY KEY,
+      job_id TEXT NOT NULL,
+      status TEXT,
+      claimed_at TEXT,
+      started_at TEXT,
+      finished_at TEXT,
+      error TEXT,
+      process_id TEXT,
       raw_output TEXT
     );
   `);
   const insertExecution = database.prepare(
-    "INSERT INTO attempt_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO executions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
   );
   for (let index = 1; index <= 2; index += 1) {
     const executionDay = String(8 + index).padStart(2, "0");
@@ -363,12 +279,12 @@ function populateHermesFixture(root: string): HermesFixture {
   const workspace = path.join(root, "workspace");
   mkdirSync(path.join(home, "memories"), { recursive: true });
   mkdirSync(path.join(home, "skills", "research", "fixture-skill"), { recursive: true });
-  mkdirSync(path.join(home, "scheduler"), { recursive: true });
+  mkdirSync(path.join(home, "cron"), { recursive: true });
   mkdirSync(path.join(workspace, "docs"), { recursive: true });
   mkdirSync(path.join(workspace, "empty"), { recursive: true });
   mkdirSync(path.join(workspace, "nested"), { recursive: true });
 
-  const settingsPath = path.join(home, "settings.yaml");
+  const settingsPath = path.join(home, "config.yaml");
   const memoryPath = path.join(home, "memories", "MEMORY.md");
   const userPath = path.join(home, "memories", "USER.md");
   const skillPath = path.join(home, "skills", "research", "fixture-skill", "SKILL.md");
@@ -427,19 +343,16 @@ function populateHermesFixture(root: string): HermesFixture {
 
   const conversationDatabasePath = writeConversationSources(home);
   const jobs = writeJobSources(home);
-  const manifestPath = path.join(root, "source-manifest.json");
-  writeFileSync(manifestPath, JSON.stringify(hermesFixtureManifest), "utf8");
 
   return {
     databaseFiles: [conversationDatabasePath, jobs.databasePath],
     environment: {
       COCKPIT_HERMES_HOME: home,
       COCKPIT_PLATFORM_HERMES_ROOT: home,
-      COCKPIT_SOURCE_MANIFEST: manifestPath,
+      COCKPIT_SOURCE_PRESET: hermesFixtureSourcePresetId,
       COCKPIT_WORKSPACE_ROOT: workspace,
     },
     home,
-    manifestPath,
     root,
     workspace,
   };
