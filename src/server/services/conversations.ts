@@ -4,16 +4,22 @@ import { homedir } from "node:os";
 import path from "node:path";
 
 import type { Conversation, ConversationPage } from "@/contracts/cockpit";
-import { readConversationPage, readConversationTranscript } from "@/server/adapters/conversations";
-import { resolveHermesContextFromEnvironment, type HermesContext } from "@/server/config/hermes-context";
 import {
-  resolveSourceManifest,
-  type PrivateSourceManifest,
-} from "@/server/config/source-manifest";
+  readConversationPage,
+  readConversationTranscript,
+  type ConversationIdentityCodec,
+} from "@/server/adapters/conversations";
+import {
+  resolveHermesContextFromEnvironment,
+  type HermesContext,
+} from "@/server/config/hermes-context";
+import { resolveSourceManifest, type PrivateSourceManifest } from "@/server/config/source-manifest";
 import { toSafeDiagnostic, type SafeDiagnostic } from "@/server/security/errors";
+import { assertSourceReadAllowed } from "@/server/security/prerender-guard";
 
 export interface LoadConversationOptions {
   environment?: Readonly<Record<string, string | undefined>>;
+  identityCodec?: ConversationIdentityCodec;
   manifest?: PrivateSourceManifest;
   now?: Date;
   platformRoot?: string;
@@ -30,9 +36,10 @@ function resolveSource(options: LoadConversationOptions): {
   manifest: PrivateSourceManifest;
 } {
   const environment = options.environment ?? process.env;
-  const platformRoot = options.platformRoot
-    ?? environment.COCKPIT_PLATFORM_HERMES_ROOT?.trim()
-    ?? path.join(homedir(), ".hermes");
+  const platformRoot =
+    options.platformRoot ??
+    environment.COCKPIT_PLATFORM_HERMES_ROOT?.trim() ??
+    path.join(homedir(), ".hermes");
   const explicitHome = environment.COCKPIT_HERMES_HOME?.trim();
   const context = resolveHermesContextFromEnvironment({
     platformRoot,
@@ -47,6 +54,9 @@ export async function loadConversationPage(
   limit: number = 5,
   options: LoadConversationOptions = {},
 ): Promise<ConversationPage> {
+  if (cursor !== null && options.identityCodec) {
+    options.identityCodec.decodeCursor(cursor);
+  }
   const source = resolveSource(options);
   return readConversationPage(
     source.context,
@@ -54,6 +64,7 @@ export async function loadConversationPage(
     cursor,
     limit,
     options.now ?? new Date(),
+    options.identityCodec ? { identityCodec: options.identityCodec } : {},
   );
 }
 
@@ -61,13 +72,22 @@ export async function loadConversationTranscript(
   requestedId: string,
   options: LoadConversationOptions = {},
 ): Promise<Conversation> {
+  if (options.identityCodec) {
+    options.identityCodec.decodeTask(requestedId);
+  }
   const source = resolveSource(options);
-  return readConversationTranscript(source.context, source.manifest.conversation, requestedId);
+  return readConversationTranscript(
+    source.context,
+    source.manifest.conversation,
+    requestedId,
+    options.identityCodec ? { identityCodec: options.identityCodec } : {},
+  );
 }
 
 export async function loadConversationPageData(
   options: LoadConversationOptions = {},
 ): Promise<ConversationPageData> {
+  assertSourceReadAllowed();
   const now = options.now ?? new Date();
   let page: ConversationPage;
   try {

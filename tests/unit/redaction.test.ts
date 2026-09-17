@@ -28,49 +28,65 @@ describe("browser boundary redaction", () => {
 
   it("redacts credential-like values even under an innocuous key", () => {
     const syntheticCredential = `Bearer ${"a".repeat(16)}`;
-    expect(redactSecrets({ note: `use ${syntheticCredential}` })).toEqual({ note: "use [REDACTED]" });
+    expect(redactSecrets({ note: `use ${syntheticCredential}` })).toEqual({
+      note: "use [REDACTED]",
+    });
   });
 
   it("redacts hyphenated sk credentials under an innocuous key", () => {
     const syntheticCredential = `sk-proj-${"a".repeat(16)}`;
-    expect(redactSecrets({ note: `use ${syntheticCredential}` })).toEqual({ note: "use [REDACTED]" });
-    expect(redactSecrets({ note: `use sk-${"a1".repeat(10)}` })).toEqual({ note: "use [REDACTED]" });
-    expect(redactSecrets({ note: `use sk-or-v1-${"a1".repeat(10)}` })).toEqual({ note: "use [REDACTED]" });
-    expect(redactSecrets({ note: `use backup_sk-proj-${"a1".repeat(10)}` }))
-      .toEqual({ note: "use backup_[REDACTED]" });
+    expect(redactSecrets({ note: `use ${syntheticCredential}` })).toEqual({
+      note: "use [REDACTED]",
+    });
+    expect(redactSecrets({ note: `use sk-${"a1".repeat(10)}` })).toEqual({
+      note: "use [REDACTED]",
+    });
+    expect(redactSecrets({ note: `use sk-or-v1-${"a1".repeat(10)}` })).toEqual({
+      note: "use [REDACTED]",
+    });
+    expect(redactSecrets({ note: `use backup_sk-proj-${"a1".repeat(10)}` })).toEqual({
+      note: "use backup_[REDACTED]",
+    });
   });
 
   it.each(["ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_"])(
     "redacts %s GitHub tokens under an innocuous key",
     (prefix) => {
       const syntheticCredential = `${prefix}${"a1".repeat(8)}`;
-      expect(redactSecrets({ note: `use ${syntheticCredential}` })).toEqual({ note: "use [REDACTED]" });
+      expect(redactSecrets({ note: `use ${syntheticCredential}` })).toEqual({
+        note: "use [REDACTED]",
+      });
     },
   );
 
   it("detects strong credentials after filename separators", () => {
-    expect(redactSecrets(`backup_github_pat_${"a1".repeat(8)}.txt`))
-      .toBe("backup_[REDACTED].txt");
-    expect(redactSecrets(`backup_AKIA${"A1".repeat(8)}.txt`))
-      .toBe("backup_[REDACTED].txt");
-    expect(redactSecrets(`backup_AIza${"a".repeat(34)}_.txt`))
-      .toBe("backup_[REDACTED].txt");
+    expect(redactSecrets(`backup_github_pat_${"a1".repeat(8)}.txt`)).toBe("backup_[REDACTED].txt");
+    expect(redactSecrets(`backup_AKIA${"A1".repeat(8)}.txt`)).toBe("backup_[REDACTED].txt");
+    expect(redactSecrets(`backup_AIza${"a".repeat(34)}_.txt`)).toBe("backup_[REDACTED].txt");
   });
 
   it.each(["AKIA", "ASIA"])("redacts %s AWS access key IDs under an innocuous key", (prefix) => {
     const syntheticCredential = `${prefix}${"A1".repeat(8)}`;
-    expect(redactSecrets({ note: `use ${syntheticCredential}` })).toEqual({ note: "use [REDACTED]" });
+    expect(redactSecrets({ note: `use ${syntheticCredential}` })).toEqual({
+      note: "use [REDACTED]",
+    });
   });
 
   it("redacts a bounded Google API key under an innocuous key", () => {
     const syntheticCredential = `AIza${"a".repeat(34)}_`;
-    expect(redactSecrets({ note: `use ${syntheticCredential}` })).toEqual({ note: "use [REDACTED]" });
-    expect(redactSecrets({ note: `use AIza${"a".repeat(34)}` })).toEqual({ note: `use AIza${"a".repeat(34)}` });
+    expect(redactSecrets({ note: `use ${syntheticCredential}` })).toEqual({
+      note: "use [REDACTED]",
+    });
+    expect(redactSecrets({ note: `use AIza${"a".repeat(34)}` })).toEqual({
+      note: `use AIza${"a".repeat(34)}`,
+    });
   });
 
   it("redacts an unprefixed compact JWT under an innocuous key", () => {
     const syntheticCredential = `eyJ${"a".repeat(12)}.${"b".repeat(16)}.${"c".repeat(19)}_`;
-    expect(redactSecrets({ note: `use ${syntheticCredential}` })).toEqual({ note: "use [REDACTED]" });
+    expect(redactSecrets({ note: `use ${syntheticCredential}` })).toEqual({
+      note: "use [REDACTED]",
+    });
   });
 
   it("handles cyclic objects without leaking or recursing forever", () => {
@@ -119,16 +135,35 @@ describe("machine path redaction", () => {
   });
 
   it("does not alter web URLs or safe relative paths", () => {
-    expect(redactMachinePaths("https://example.com/Users/docs and docs/file.md"))
-      .toBe("https://example.com/Users/docs and docs/file.md");
+    expect(redactMachinePaths("https://example.com/Users/docs and docs/file.md")).toBe(
+      "https://example.com/Users/docs and docs/file.md",
+    );
   });
 });
 
 describe("browser text redaction", () => {
   it("redacts credential assignments embedded in document text", () => {
-    expect(redactBrowserText("api_key: ordinary-looking-private-value\nSafe line"))
-      .toBe("[REDACTED]\nSafe line");
-    expect(redactBrowserText("password = 'private words'"))
-      .toBe("[REDACTED]");
+    expect(redactBrowserText("api_key: ordinary-looking-private-value\nSafe line")).toBe(
+      "[REDACTED]\nSafe line",
+    );
+    expect(redactBrowserText("password = 'private words'")).toBe("[REDACTED]");
+  });
+
+  it("redacts wrapped and mixed credential-bearing endpoints without hiding safe text", () => {
+    const result = redactBrowserText(
+      [
+        "first?x=1",
+        "private.example.test/callback?%61ccess%5Ftoken=encoded-secret",
+        "see (https://alice:paren-secret@example.invalid/path)",
+        "[db](https://bob:markdown-secret@example.invalid/path)",
+        "see (//carol:relative-secret@example.invalid/path)",
+        "safe suffix",
+      ].join("\n"),
+    );
+
+    expect(result).toContain("first?x=1");
+    expect(result).toContain("safe suffix");
+    for (const secret of ["encoded-secret", "paren-secret", "markdown-secret", "relative-secret"])
+      expect(result).not.toContain(secret);
   });
 });

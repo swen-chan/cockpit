@@ -7,7 +7,9 @@ describe("safe Markdown preview", () => {
   it("does not create active HTML, links, or remotely loading images", () => {
     const { container } = render(
       <SafeMarkdown
-        content={'# Safe\n\n<script>window.compromised = true</script>\n\n![tracker](https://private.invalid/pixel.png)\n\n[link](https://private.invalid)'}
+        content={
+          "# Safe\n\n<script>window.compromised = true</script>\n\n![tracker](https://private.invalid/pixel.png)\n\n[link](https://private.invalid)"
+        }
         query="Safe"
       />,
     );
@@ -17,7 +19,10 @@ describe("safe Markdown preview", () => {
     expect(container.querySelector("img")).toBeNull();
     expect(container.querySelector("a")).toBeNull();
     expect(screen.getByText(/Image omitted: tracker/u)).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Document preview" })).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("region", { name: "Document preview" })).toHaveAttribute(
+      "tabindex",
+      "0",
+    );
   });
 
   it("keeps an adversarial active-content corpus inert", () => {
@@ -28,10 +33,10 @@ describe("safe Markdown preview", () => {
           '<iframe src="https://remote.invalid/frame"></iframe>',
           '<style>@import url("https://remote.invalid/style.css");</style>',
           '<object data="https://remote.invalid/object"></object>',
-          '![remote](https://remote.invalid/markdown.png)',
-          '[external](https://remote.invalid)',
-          '[script](javascript:alert(1))',
-          '<https://remote.invalid/autolink>',
+          "![remote](https://remote.invalid/markdown.png)",
+          "[external](https://remote.invalid)",
+          "[script](javascript:alert(1))",
+          "<https://remote.invalid/autolink>",
         ].join("\n\n")}
         query="remote"
       />,

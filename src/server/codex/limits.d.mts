@@ -1,0 +1,24 @@
+export const CODEX_LIMITS: Readonly<{
+  version: "0.145.0";
+  probeMs: number;
+  probeBytes: number;
+  helperMs: number;
+  helperBytes: number;
+  databaseBytes: number;
+  shmBytes: number;
+  rolloutBytes: number;
+  initializeMs: number;
+  listMs: number;
+  readMs: number;
+  listLifetimeMs: number;
+  readLifetimeMs: number;
+  lineBytes: number;
+  stdoutBytes: number;
+  stderrBytes: number;
+  messages: number;
+  notifications: number;
+  stdinGraceMs: number;
+  termGraceMs: number;
+  rssKiB: number;
+  sampleMs: number;
+}>;

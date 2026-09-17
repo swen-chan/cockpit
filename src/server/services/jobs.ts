@@ -4,15 +4,27 @@ import { homedir } from "node:os";
 import path from "node:path";
 
 import type { HermesJob, JobsSnapshot } from "@/contracts/cockpit";
-import { readJobDefinitions, readRecentJobExecutions, type JobExecutionHistory } from "@/server/adapters/jobs";
+import {
+  readJobDefinitions,
+  readRecentJobExecutions,
+  type JobExecutionHistory,
+} from "@/server/adapters/jobs";
 import { sourceStateForCode } from "@/server/adapters/safe-values";
-import { resolveHermesContextFromEnvironment, type HermesContext } from "@/server/config/hermes-context";
+import {
+  resolveHermesContextFromEnvironment,
+  type HermesContext,
+} from "@/server/config/hermes-context";
 import {
   resolveSourceManifest,
   type JobsManifest,
   type PrivateSourceManifest,
 } from "@/server/config/source-manifest";
-import { SourceSecurityError, toSafeDiagnostic, type SafeDiagnostic } from "@/server/security/errors";
+import {
+  SourceSecurityError,
+  toSafeDiagnostic,
+  type SafeDiagnostic,
+} from "@/server/security/errors";
+import { assertSourceReadAllowed } from "@/server/security/prerender-guard";
 
 export interface JobsPageData extends JobsSnapshot {
   failures: SafeDiagnostic[];
@@ -33,9 +45,10 @@ export interface LoadJobsOptions {
 
 function resolveContext(options: LoadJobsOptions): HermesContext {
   const environment = options.environment ?? process.env;
-  const platformRoot = options.platformRoot
-    ?? environment.COCKPIT_PLATFORM_HERMES_ROOT?.trim()
-    ?? path.join(homedir(), ".hermes");
+  const platformRoot =
+    options.platformRoot ??
+    environment.COCKPIT_PLATFORM_HERMES_ROOT?.trim() ??
+    path.join(homedir(), ".hermes");
   const explicitHome = environment.COCKPIT_HERMES_HOME?.trim();
   return resolveHermesContextFromEnvironment({
     platformRoot,
@@ -52,6 +65,7 @@ function resolveJobsManifest(options: LoadJobsOptions): JobsManifest {
 }
 
 export async function loadJobsPageData(options: LoadJobsOptions = {}): Promise<JobsPageData> {
+  assertSourceReadAllowed();
   const now = options.now ?? new Date();
   const observedAt = now.toISOString();
   const failures: SafeDiagnostic[] = [];

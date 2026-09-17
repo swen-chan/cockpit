@@ -8,9 +8,11 @@ import { SearchField } from "@/components/search-field";
 import { SourceLedger } from "@/components/source-ledger";
 import { SourceState } from "@/components/source-state";
 import { Button } from "@/components/ui/button";
+import type { AgentPanelId } from "@/contracts/agents";
 import type { Conversation, ConversationPage, ConversationSummary } from "@/contracts/cockpit";
 import { conversationPageSchema, conversationSchema } from "@/contracts/source-result";
 import { cn } from "@/lib/cn";
+import { isCurrentPanelLocation, parseScopedPayload, scopedApiPath } from "@/lib/scoped-client";
 import { formatShanghaiTime } from "@/lib/time";
 
 const PAGE_SIZE = 5;
@@ -19,14 +21,18 @@ export function ConversationBrowser({
   initialConversation,
   initialFailure,
   initialPage,
+  panelId,
 }: {
   initialConversation: Conversation | null;
   initialFailure?: string | undefined;
   initialPage: ConversationPage;
+  panelId?: AgentPanelId | undefined;
 }) {
   const [conversations, setConversations] = useState<ConversationSummary[]>(initialPage.items);
   const [nextCursor, setNextCursor] = useState(initialPage.nextCursor);
-  const [selectedId, setSelectedId] = useState(initialConversation?.id ?? initialPage.items[0]?.id ?? "");
+  const [selectedId, setSelectedId] = useState(
+    initialConversation?.id ?? initialPage.items[0]?.id ?? "",
+  );
   const [selectedConversation, setSelectedConversation] = useState(initialConversation);
   const [transcriptState, setTranscriptState] = useState<"idle" | "loading" | "error">(
     initialFailure ? "error" : "idle",
@@ -34,13 +40,23 @@ export function ConversationBrowser({
   const [pageState, setPageState] = useState<"idle" | "loading" | "error">("idle");
   const [query, setQuery] = useState("");
   const transcriptRequest = useRef<AbortController | null>(null);
+  const pageRequest = useRef<AbortController | null>(null);
   const paginationStatusRef = useRef<HTMLParagraphElement>(null);
   const transcriptTitleRef = useRef<HTMLHeadingElement>(null);
   const shouldFocusPaginationStatus = useRef(false);
   const shouldRevealTranscript = useRef(false);
   const selectedSummary = conversations.find((item) => item.id === selectedId) ?? conversations[0];
-  const searchableText = selectedConversation?.messages.map((message) => message.content).join("\n") ?? "";
+  const searchableText =
+    selectedConversation?.messages.map((message) => message.content).join("\n") ?? "";
   const matches = useMemo(() => countMatches(searchableText, query), [query, searchableText]);
+
+  useEffect(
+    () => () => {
+      transcriptRequest.current?.abort();
+      pageRequest.current?.abort();
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!shouldRevealTranscript.current) return;
@@ -59,8 +75,8 @@ export function ConversationBrowser({
     transcriptRequest.current?.abort();
     const controller = new AbortController();
     transcriptRequest.current = controller;
-    const revealTranscript = typeof window.matchMedia === "function"
-      && window.matchMedia("(max-width: 767px)").matches;
+    const revealTranscript =
+      typeof window.matchMedia === "function" && window.matchMedia("(max-width: 767px)").matches;
     shouldRevealTranscript.current = revealTranscript && conversation.id !== selectedId;
     if (revealTranscript && conversation.id === selectedId) {
       transcriptTitleRef.current?.focus({ preventScroll: true });
@@ -71,15 +87,20 @@ export function ConversationBrowser({
     setTranscriptState("loading");
     setQuery("");
     try {
-      const response = await fetch(`/api/conversations/${encodeURIComponent(conversation.id)}`, {
+      const endpoint = panelId
+        ? scopedApiPath(panelId, `/conversations/${encodeURIComponent(conversation.id)}`)
+        : `/api/conversations/${encodeURIComponent(conversation.id)}`;
+      const response = await fetch(endpoint, {
         cache: "no-store",
         signal: controller.signal,
       });
       const payload: unknown = await response.json();
-      const parsed = conversationSchema.safeParse(payload);
-      if (!response.ok || !parsed.success) throw new Error("invalid conversation transcript");
-      if (!controller.signal.aborted) {
-        setSelectedConversation(parsed.data);
+      const parsed = panelId
+        ? parseScopedPayload(payload, panelId, conversationSchema)
+        : conversationSchema.safeParse(payload).data;
+      if (!response.ok || !parsed) throw new Error("invalid conversation transcript");
+      if (!controller.signal.aborted && (!panelId || isCurrentPanelLocation(panelId))) {
+        setSelectedConversation(parsed);
         setTranscriptState("idle");
       }
     } catch {
@@ -89,24 +110,32 @@ export function ConversationBrowser({
 
   const loadMore = async () => {
     if (!nextCursor || pageState === "loading") return;
+    pageRequest.current?.abort();
+    const controller = new AbortController();
+    pageRequest.current = controller;
     setPageState("loading");
     try {
-      const response = await fetch(
-        `/api/conversations?cursor=${encodeURIComponent(nextCursor)}&limit=${PAGE_SIZE}`,
-        { cache: "no-store" },
-      );
+      const endpoint = panelId
+        ? scopedApiPath(panelId, `/conversations?cursor=${encodeURIComponent(nextCursor)}`)
+        : `/api/conversations?cursor=${encodeURIComponent(nextCursor)}&limit=${PAGE_SIZE}`;
+      const response = await fetch(endpoint, { cache: "no-store", signal: controller.signal });
       const payload: unknown = await response.json();
-      const parsed = conversationPageSchema.safeParse(payload);
-      if (!response.ok || !parsed.success) throw new Error("invalid conversation page");
+      const parsed = panelId
+        ? parseScopedPayload(payload, panelId, conversationPageSchema)
+        : conversationPageSchema.safeParse(payload).data;
+      if (!response.ok || !parsed) throw new Error("invalid conversation page");
+      if (controller.signal.aborted || (panelId && !isCurrentPanelLocation(panelId))) return;
       setConversations((current) => {
         const known = new Set(current.map((item) => item.id));
-        return [...current, ...parsed.data.items.filter((item) => !known.has(item.id))];
+        return [...current, ...parsed.items.filter((item) => !known.has(item.id))];
       });
-      shouldFocusPaginationStatus.current = parsed.data.nextCursor === null;
-      setNextCursor(parsed.data.nextCursor);
+      shouldFocusPaginationStatus.current = parsed.nextCursor === null;
+      setNextCursor(parsed.nextCursor);
       setPageState("idle");
     } catch {
-      setPageState("error");
+      if (!controller.signal.aborted && (!panelId || isCurrentPanelLocation(panelId))) {
+        setPageState("error");
+      }
     }
   };
 
@@ -138,7 +167,8 @@ export function ConversationBrowser({
         aria-busy={pageState === "loading"}
       >
         <div className="pane-label">
-          ELIGIBLE SESSIONS / {conversations.length.toString().padStart(2, "0")}{nextCursor ? "+" : ""}
+          ELIGIBLE SESSIONS / {conversations.length.toString().padStart(2, "0")}
+          {nextCursor ? "+" : ""}
         </div>
         <div className="conversation-list-scroll">
           <ul className="index-list conversation-list">
@@ -146,7 +176,10 @@ export function ConversationBrowser({
               <li key={conversation.id}>
                 <button
                   type="button"
-                  className={cn("index-row conversation-row", conversation.id === selectedSummary.id && "is-selected")}
+                  className={cn(
+                    "index-row conversation-row",
+                    conversation.id === selectedSummary.id && "is-selected",
+                  )}
                   onClick={() => void loadTranscript(conversation)}
                   aria-pressed={conversation.id === selectedSummary.id}
                 >
@@ -154,7 +187,9 @@ export function ConversationBrowser({
                   <span>
                     <strong>{conversation.title}</strong>
                     <small>{conversation.preview}</small>
-                    <em>{formatShanghaiTime(conversation.lastActivity)} · {conversation.source}</em>
+                    <em>
+                      {formatShanghaiTime(conversation.lastActivity)} · {conversation.source}
+                    </em>
                   </span>
                 </button>
               </li>
@@ -182,8 +217,8 @@ export function ConversationBrowser({
             {pageState === "error"
               ? `More conversations could not be loaded. ${conversations.length} sessions remain loaded.`
               : nextCursor
-              ? `${conversations.length} sessions loaded. Load older eligible sessions as needed.`
-              : `All ${conversations.length} eligible sessions are loaded.`}
+                ? `${conversations.length} sessions loaded. Load older eligible sessions as needed.`
+                : `All ${conversations.length} eligible sessions are loaded.`}
           </p>
         </footer>
       </section>
@@ -196,30 +231,54 @@ export function ConversationBrowser({
         <div className="preview-toolbar">
           <div>
             <p className="eyebrow">TRANSCRIPT</p>
-            <h2 id="conversation-title" ref={transcriptTitleRef} tabIndex={-1}>{selectedSummary.title}</h2>
+            <h2 id="conversation-title" ref={transcriptTitleRef} tabIndex={-1}>
+              {selectedSummary.title}
+            </h2>
           </div>
         </div>
-        {transcriptState === "loading" ? <SourceState kind="loading" detail="Loading the selected transcript." /> : null}
+        {transcriptState === "loading" ? (
+          <SourceState kind="loading" detail="Loading the selected transcript." />
+        ) : null}
         {transcriptState === "error" ? (
-          <SourceState kind="error" detail={initialFailure ?? "The selected transcript could not be safely loaded."} />
+          <SourceState
+            kind="error"
+            detail={initialFailure ?? "The selected transcript could not be safely loaded."}
+          />
         ) : null}
         {transcriptState === "idle" && selectedConversation ? (
           <>
-            <SearchField label="Search loaded transcript" value={query} onChange={setQuery} resultCount={matches} />
+            <SearchField
+              label="Search loaded transcript"
+              value={query}
+              onChange={setQuery}
+              resultCount={matches}
+            />
             {selectedConversation.messages.length > 0 ? (
               <ol className="transcript-list">
                 {selectedConversation.messages.map((message) => (
                   <li key={message.id} className={cn("message", `message-${message.role}`)}>
                     <header>
-                      <span>{message.role === "tool" ? <Wrench aria-hidden="true" size={13} /> : null}{message.role}</span>
+                      <span>
+                        {message.role === "tool" ? <Wrench aria-hidden="true" size={13} /> : null}
+                        {message.role}
+                      </span>
                       <time>{formatShanghaiTime(message.timestamp)}</time>
                     </header>
-                    <p><HighlightedText text={message.content} query={query} /></p>
+                    <p>
+                      <HighlightedText text={message.content} query={query} />
+                    </p>
                   </li>
                 ))}
               </ol>
-            ) : <SourceState kind="empty" detail="This session contains no visible active messages." />}
-            {selectedConversation.truncated ? <p className="truncation-note">Transcript preview is bounded.</p> : null}
+            ) : (
+              <SourceState
+                kind="empty"
+                detail="This session contains no visible active messages."
+              />
+            )}
+            {selectedConversation.truncated ? (
+              <p className="truncation-note">Transcript preview is bounded.</p>
+            ) : null}
           </>
         ) : null}
       </article>

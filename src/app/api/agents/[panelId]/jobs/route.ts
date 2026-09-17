@@ -1,0 +1,20 @@
+import { jobsSnapshotSchema } from "@/contracts/source-result";
+import { assertNoQuery } from "@/server/http/query";
+import { scopedFailureResponse, scopedSuccessResponse } from "@/server/http/scoped-route";
+import { requireScopedPanelSurface, resolveScopedPanel } from "@/server/panels/routing";
+import type { AgentPanelDescriptor } from "@/server/panels/registry";
+import { loadAgentJobs } from "@/server/services/agents";
+
+export async function GET(request: Request, context: RouteContext<"/api/agents/[panelId]/jobs">) {
+  let panel: AgentPanelDescriptor | undefined;
+  try {
+    const { panelId } = await context.params;
+    panel = resolveScopedPanel(panelId);
+    requireScopedPanelSurface(panel, "jobs");
+    assertNoQuery(request);
+    const snapshot = await loadAgentJobs(panel);
+    return scopedSuccessResponse(panel, snapshot, jobsSnapshotSchema);
+  } catch (error) {
+    return scopedFailureResponse(error, { sourceId: "jobs", ...(panel ? { panel } : {}) });
+  }
+}

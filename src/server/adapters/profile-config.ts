@@ -15,10 +15,7 @@ function extractModelAndProvider(config: unknown): Pick<ProfileSummary, "model" 
   const modelSection = asRecord(root.model);
   const rawModel = modelSection?.default ?? modelSection?.model ?? modelSection?.name ?? root.model;
   const nestedModel = asRecord(rawModel);
-  const model = safeIdentifier(
-    nestedModel?.model ?? nestedModel?.default ?? rawModel,
-    200,
-  );
+  const model = safeIdentifier(nestedModel?.model ?? nestedModel?.default ?? rawModel, 200);
   const provider = safeIdentifier(
     modelSection?.provider ?? nestedModel?.provider ?? root.provider,
     100,
@@ -38,7 +35,9 @@ export async function readProfileSummary(
   };
 
   try {
-    const source = await readNamedTextSource(context.home, configRelativePath, { rejectOversized: true });
+    const source = await readNamedTextSource(context.home, configRelativePath, {
+      rejectOversized: true,
+    });
     let parsed: unknown;
     try {
       parsed = parse(source.text, { maxAliasCount: 20, uniqueKeys: true });

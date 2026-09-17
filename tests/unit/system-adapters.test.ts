@@ -58,16 +58,19 @@ describe("Task 5 local adapters", () => {
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
   it("constructs a new allowlisted profile summary without secret configuration fields", async () => {
-    writeFileSync(path.join(home, "settings.yaml"), [
-      "model:",
-      "  default: safe-model",
-      "  provider: safe-provider",
-      "  base_url: https://private.invalid",
-      "  api_key: sk-proj-this-must-not-cross",
-      "headers:",
-      "  authorization: Bearer this-must-not-cross",
-      "environment: PRIVATE_TOKEN",
-    ].join("\n"));
+    writeFileSync(
+      path.join(home, "settings.yaml"),
+      [
+        "model:",
+        "  default: safe-model",
+        "  provider: safe-provider",
+        "  base_url: https://private.invalid",
+        "  api_key: sk-proj-this-must-not-cross",
+        "headers:",
+        "  authorization: Bearer this-must-not-cross",
+        "environment: PRIVATE_TOKEN",
+      ].join("\n"),
+    );
 
     const summary = await readProfileSummary(context, manifest.configRelativePath);
 
@@ -101,12 +104,12 @@ describe("Task 5 local adapters", () => {
   });
 
   it("supports a paired nested model/provider value", async () => {
-    writeFileSync(path.join(home, "settings.yaml"), [
-      "model:",
-      "  default:",
-      "    model: nested-model",
-      "    provider: nested-provider",
-    ].join("\n"));
+    writeFileSync(
+      path.join(home, "settings.yaml"),
+      ["model:", "  default:", "    model: nested-model", "    provider: nested-provider"].join(
+        "\n",
+      ),
+    );
     await expect(readProfileSummary(context, manifest.configRelativePath)).resolves.toMatchObject({
       model: "nested-model",
       provider: "nested-provider",
@@ -131,7 +134,11 @@ describe("Task 5 local adapters", () => {
   });
 
   it("reads bounded named documents and reports missing sources independently", async () => {
-    writeFileSync(path.join(workspace, "SOUL.md"), `# Principles\n\n/Users/private-name/AI/Hermes\n\napi_key: ordinary-private-value\n\n${"a".repeat(110_000)}`, "utf8");
+    writeFileSync(
+      path.join(workspace, "SOUL.md"),
+      `# Principles\n\n/Users/private-name/AI/Hermes\n\napi_key: ordinary-private-value\n\n${"a".repeat(110_000)}`,
+      "utf8",
+    );
     const spec = {
       id: "soul" as const,
       title: "SOUL.md",
@@ -183,7 +190,11 @@ describe("Task 5 local adapters", () => {
     `);
     database.close();
 
-    const source = await readSystemPrompt(context, manifest.conversation, new Date("2026-09-01T00:00:00Z"));
+    const source = await readSystemPrompt(
+      context,
+      manifest.conversation,
+      new Date("2026-09-01T00:00:00Z"),
+    );
     expect(source).toMatchObject({
       content: "# Eligible prompt\n\nWorkspace: <local-path>",
       stamp: { state: "ready" },
@@ -210,7 +221,10 @@ describe("Task 5 local adapters", () => {
 
     const source = await readSystemPrompt(context, manifest.conversation);
     expect(source.content).toBe("# Embedded prompt");
-    expect(source.metadata).toContainEqual({ label: "Resolution", value: "Embedded compatibility fallback" });
+    expect(source.metadata).toContainEqual({
+      label: "Resolution",
+      value: "Embedded compatibility fallback",
+    });
     expect(source.metadata).toContainEqual({ label: "Used by", value: "Untitled conversation" });
   });
 
@@ -224,12 +238,18 @@ describe("Task 5 local adapters", () => {
     database.close();
     await expect(readSystemPrompt(context, manifest.conversation)).resolves.toMatchObject({
       stamp: { state: "error" },
-      metadata: expect.arrayContaining([{ label: "Diagnostic", value: "source_malformed", mono: true }]),
+      metadata: expect.arrayContaining([
+        { label: "Diagnostic", value: "source_malformed", mono: true },
+      ]),
     });
 
-    await expect(readSystemPrompt(context, manifest.conversation, new Date(), {
-      databaseReader: async () => { throw new SourceSecurityError("source_busy"); },
-    })).resolves.toMatchObject({
+    await expect(
+      readSystemPrompt(context, manifest.conversation, new Date(), {
+        databaseReader: async () => {
+          throw new SourceSecurityError("source_busy");
+        },
+      }),
+    ).resolves.toMatchObject({
       stamp: { state: "error" },
       metadata: expect.arrayContaining([{ label: "Diagnostic", value: "source_busy", mono: true }]),
     });

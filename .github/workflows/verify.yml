@@ -14,9 +14,11 @@ concurrency:
 
 jobs:
   quality:
-    name: Typecheck, lint, test, build, browser
+    name: Format, typecheck, lint, test, build, browser
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      HUSKY: 0
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

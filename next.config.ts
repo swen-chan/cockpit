@@ -33,6 +33,14 @@ const nextConfig: NextConfig = {
     ];
   },
   poweredByHeader: false,
+  outputFileTracingIncludes: {
+    "/api/agents/**/*": [
+      "src/server/codex/snapshot-worker.mjs",
+      "src/server/codex/limits.mjs",
+      "src/server/codex/owned-temp.mjs",
+      "src/server/codex/stable-copy.mjs",
+    ],
+  },
   serverExternalPackages: ["better-sqlite3"],
   typedRoutes: true,
 };

@@ -5,12 +5,7 @@ interface PageHeaderProps {
   observedAt: string;
 }
 
-export function PageHeader({
-  description,
-  mode,
-  observedAt,
-  title,
-}: PageHeaderProps) {
+export function PageHeader({ description, mode, observedAt, title }: PageHeaderProps) {
   return (
     <header className="page-header">
       <div>

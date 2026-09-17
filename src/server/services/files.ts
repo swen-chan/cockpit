@@ -1,16 +1,15 @@
 import "server-only";
 
 import type { WorkspaceDirectory, WorkspaceFile } from "@/contracts/cockpit";
-import {
-  readWorkspaceDirectory,
-  readWorkspacePreview,
-} from "@/server/adapters/files";
+import { readWorkspaceDirectory, readWorkspacePreview } from "@/server/adapters/files";
 import { resolveCockpitRuntimeConfig } from "@/server/config/runtime";
 import { toSafeDiagnostic, type SafeDiagnostic } from "@/server/security/errors";
+import { assertSourceReadAllowed } from "@/server/security/prerender-guard";
 
 export interface LoadFilesOptions {
   environment?: Readonly<Record<string, string | undefined>>;
   now?: Date;
+  workspaceRoot?: string;
 }
 
 export interface FilesPageData {
@@ -21,6 +20,7 @@ export interface FilesPageData {
 }
 
 function workspaceRoot(options: LoadFilesOptions): string {
+  if (options.workspaceRoot !== undefined) return options.workspaceRoot;
   return resolveCockpitRuntimeConfig(options.environment ?? process.env).workspaceRoot;
 }
 
@@ -28,11 +28,7 @@ export async function loadWorkspaceDirectory(
   relativePath: string = "",
   options: LoadFilesOptions = {},
 ): Promise<WorkspaceDirectory> {
-  return readWorkspaceDirectory(
-    workspaceRoot(options),
-    relativePath,
-    options.now ?? new Date(),
-  );
+  return readWorkspaceDirectory(workspaceRoot(options), relativePath, options.now ?? new Date());
 }
 
 export async function loadWorkspacePreview(
@@ -43,6 +39,7 @@ export async function loadWorkspacePreview(
 }
 
 export async function loadFilesPageData(options: LoadFilesOptions = {}): Promise<FilesPageData> {
+  assertSourceReadAllowed();
   const now = options.now ?? new Date();
   let directory: WorkspaceDirectory;
   try {

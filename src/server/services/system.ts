@@ -5,7 +5,11 @@ import path from "node:path";
 import { cache } from "react";
 
 import type { ProfileSummary, SystemSnapshot, SystemSource } from "@/contracts/cockpit";
-import { readSkillPreview, readSkillsSource, readToolsSource } from "@/server/adapters/capabilities";
+import {
+  readSkillPreview,
+  readSkillsSource,
+  readToolsSource,
+} from "@/server/adapters/capabilities";
 import { profileConfigSystemSource } from "@/server/adapters/config-system-source";
 import {
   profileSummaryWithoutConfig,
@@ -18,17 +22,18 @@ import {
   type SystemDocumentSpec,
 } from "@/server/adapters/system-documents";
 import { readSystemPrompt, unavailableSystemPrompt } from "@/server/adapters/system-prompt";
-import { resolveHermesContextFromEnvironment, type HermesContext } from "@/server/config/hermes-context";
-import { resolveCockpitRuntimeConfig } from "@/server/config/runtime";
 import {
-  resolveSourceManifest,
-  type PrivateSourceManifest,
-} from "@/server/config/source-manifest";
+  resolveHermesContextFromEnvironment,
+  type HermesContext,
+} from "@/server/config/hermes-context";
+import { resolveCockpitRuntimeConfig } from "@/server/config/runtime";
+import { resolveSourceManifest, type PrivateSourceManifest } from "@/server/config/source-manifest";
 import {
   classifySourceError,
   SourceSecurityError,
   type SafeErrorCode,
 } from "@/server/security/errors";
+import { assertSourceReadAllowed } from "@/server/security/prerender-guard";
 
 export type SystemPageData = SystemSnapshot;
 
@@ -122,9 +127,10 @@ function resolveContext(
 
 function resolveSystemInputs(options: LoadSystemOptions): ResolvedSystemInputs {
   const environment = options.environment ?? process.env;
-  const platformRoot = options.platformRoot
-    ?? environment.COCKPIT_PLATFORM_HERMES_ROOT?.trim()
-    ?? path.join(homedir(), ".hermes");
+  const platformRoot =
+    options.platformRoot ??
+    environment.COCKPIT_PLATFORM_HERMES_ROOT?.trim() ??
+    path.join(homedir(), ".hermes");
   return {
     context: resolveContext(environment, platformRoot),
     environment,
@@ -175,16 +181,19 @@ async function readCoreSystemSources({
   manifestResult,
   now,
 }: ResolvedSystemInputs): Promise<SystemSource[]> {
-  const prompt = context && manifestResult.manifest
-    ? await readSystemPrompt(context, manifestResult.manifest.conversation, now)
-    : unavailableSystemPrompt(
-      manifestResult.state === "error" ? "error" : "unavailable",
-      context ? manifestResult.code ?? "source_manifest_unavailable" : "profile_unavailable",
-      now,
-    );
+  const prompt =
+    context && manifestResult.manifest
+      ? await readSystemPrompt(context, manifestResult.manifest.conversation, now)
+      : unavailableSystemPrompt(
+          manifestResult.state === "error" ? "error" : "unavailable",
+          context ? (manifestResult.code ?? "source_manifest_unavailable") : "profile_unavailable",
+          now,
+        );
 
   const memory = context
-    ? await Promise.all(memorySpecs.map((spec) => readSystemDocument({ ...spec, root: context.home }, now)))
+    ? await Promise.all(
+        memorySpecs.map((spec) => readSystemDocument({ ...spec, root: context.home }, now)),
+      )
     : memorySpecs.map((spec) => documentFailure(spec, "unavailable", "profile_unavailable", now));
 
   let workspaceRoot: string | null = null;
@@ -192,64 +201,82 @@ async function readCoreSystemSources({
     workspaceRoot = resolveCockpitRuntimeConfig(environment).workspaceRoot;
   } catch {}
   const workspace = workspaceRoot
-    ? await Promise.all(workspaceSpecs.map((spec) => readSystemDocument({ ...spec, root: workspaceRoot! }, now)))
-    : workspaceSpecs.map((spec) => documentFailure(spec, "unavailable", "workspace_unavailable", now));
+    ? await Promise.all(
+        workspaceSpecs.map((spec) => readSystemDocument({ ...spec, root: workspaceRoot! }, now)),
+      )
+    : workspaceSpecs.map((spec) =>
+        documentFailure(spec, "unavailable", "workspace_unavailable", now),
+      );
 
   return [prompt, ...memory, ...workspace];
 }
 
-export async function loadProfileFromEnvironment(options: LoadSystemOptions = {}): Promise<ProfileSummary> {
+export async function loadProfileFromEnvironment(
+  options: LoadSystemOptions = {},
+): Promise<ProfileSummary> {
+  assertSourceReadAllowed();
   const environment = options.environment ?? process.env;
-  const platformRoot = options.platformRoot
-    ?? environment.COCKPIT_PLATFORM_HERMES_ROOT?.trim()
-    ?? path.join(homedir(), ".hermes");
+  const platformRoot =
+    options.platformRoot ??
+    environment.COCKPIT_PLATFORM_HERMES_ROOT?.trim() ??
+    path.join(homedir(), ".hermes");
   const context = resolveContext(environment, platformRoot);
   if (!context) return unavailableProfileSummary();
   const manifestResult = resolveManifest(environment, options.manifest);
   if (!manifestResult.manifest) {
-    return profileSummaryWithoutConfig(context, manifestResult.state === "error" ? "error" : "unavailable");
+    return profileSummaryWithoutConfig(
+      context,
+      manifestResult.state === "error" ? "error" : "unavailable",
+    );
   }
   return readProfileSummary(context, manifestResult.manifest.configRelativePath);
 }
 
 export const loadProfileForRequest = cache(() => loadProfileFromEnvironment());
 
-export async function loadCoreSystemSources(options: LoadSystemOptions = {}): Promise<SystemSource[]> {
+export async function loadCoreSystemSources(
+  options: LoadSystemOptions = {},
+): Promise<SystemSource[]> {
   return readCoreSystemSources(resolveSystemInputs(options));
 }
 
 export async function loadSystemPageData(options: LoadSystemOptions = {}): Promise<SystemPageData> {
+  assertSourceReadAllowed();
   const inputs = resolveSystemInputs(options);
   const { context, manifestResult, now } = inputs;
   const profile = context
     ? manifestResult.manifest
       ? await readProfileSummary(context, manifestResult.manifest.configRelativePath)
-      : profileSummaryWithoutConfig(context, manifestResult.state === "error" ? "error" : "unavailable")
+      : profileSummaryWithoutConfig(
+          context,
+          manifestResult.state === "error" ? "error" : "unavailable",
+        )
     : unavailableProfileSummary();
 
   const coreSources = await readCoreSystemSources(inputs);
 
-  const capabilities = context && manifestResult.manifest
-    ? await Promise.all([
-      readSkillsSource(context, manifestResult.manifest.configRelativePath, now),
-      readToolsSource(context, manifestResult.manifest.configRelativePath, now),
-    ])
-    : [
-      capabilityFailure(
-        "skills",
-        "Skills",
-        "Installed skill manifests visible to Hermes.",
-        "<HERMES_HOME> / skills",
-        now,
-      ),
-      capabilityFailure(
-        "tools",
-        "Tools",
-        "Effective Hermes toolsets for the active CLI profile.",
-        "<HERMES_HOME> / <SAFE_CONFIG_SOURCE> / platform_toolsets",
-        now,
-      ),
-    ];
+  const capabilities =
+    context && manifestResult.manifest
+      ? await Promise.all([
+          readSkillsSource(context, manifestResult.manifest.configRelativePath, now),
+          readToolsSource(context, manifestResult.manifest.configRelativePath, now),
+        ])
+      : [
+          capabilityFailure(
+            "skills",
+            "Skills",
+            "Installed skill manifests visible to Hermes.",
+            "<HERMES_HOME> / skills",
+            now,
+          ),
+          capabilityFailure(
+            "tools",
+            "Tools",
+            "Effective Hermes toolsets for the active CLI profile.",
+            "<HERMES_HOME> / <SAFE_CONFIG_SOURCE> / platform_toolsets",
+            now,
+          ),
+        ];
 
   return {
     profile,
@@ -262,9 +289,10 @@ export async function loadSkillPreview(
   options: LoadSystemOptions = {},
 ): Promise<SystemSource> {
   const environment = options.environment ?? process.env;
-  const platformRoot = options.platformRoot
-    ?? environment.COCKPIT_PLATFORM_HERMES_ROOT?.trim()
-    ?? path.join(homedir(), ".hermes");
+  const platformRoot =
+    options.platformRoot ??
+    environment.COCKPIT_PLATFORM_HERMES_ROOT?.trim() ??
+    path.join(homedir(), ".hermes");
   const context = resolveContext(environment, platformRoot);
   if (!context) throw new SourceSecurityError("invalid_profile");
   return readSkillPreview(context, requestedId, options.now ?? new Date());

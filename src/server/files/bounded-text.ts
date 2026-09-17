@@ -39,7 +39,11 @@ export async function readNamedTextSource(
       offset += bytesRead;
     }
 
-    const bounded = boundUtf8Text(buffer.subarray(0, offset).toString("utf8"), maxBytes, maxCharacters);
+    const bounded = boundUtf8Text(
+      buffer.subarray(0, offset).toString("utf8"),
+      maxBytes,
+      maxCharacters,
+    );
     const stat = fstatSync(file.descriptor);
     return {
       ...bounded,

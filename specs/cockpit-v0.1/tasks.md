@@ -383,33 +383,33 @@ read-only acceptance on 2026-09-12.
 ## Deferred follow-ups outside v0.1
 
 - [ ] Add stable, validated Overview row deep links only if real usage shows
-  that section-level links are insufficient. Limit them to summaries with one
-  clear destination item, and require an allowlisted stable identifier plus a
-  target-page selection protocol; do not pre-emptively expand Jobs or Workspace
-  DTOs. Until then, keep rows static rather than linking them to a misleading
-  default selection.
+      that section-level links are insufficient. Limit them to summaries with one
+      clear destination item, and require an allowlisted stable identifier plus a
+      target-page selection protocol; do not pre-emptively expand Jobs or Workspace
+      DTOs. Until then, keep rows static rather than linking them to a misleading
+      default selection.
 - [ ] Introduce a networked/multi-user trust boundary only when Cockpit adds
-  remote access, multiple operating-system users, browser-configurable or
-  plugin-controlled sources, elevated privileges, telemetry, or remote error
-  reporting. At that gate, add authentication and authorization, classify or
-  redact allowlisted paths and authority-bearing URI references, and retest
-  Host, Origin, CORS, CSP, logging, and screenshot/export behavior.
+      remote access, multiple operating-system users, browser-configurable or
+      plugin-controlled sources, elevated privileges, telemetry, or remote error
+      reporting. At that gate, add authentication and authorization, classify or
+      redact allowlisted paths and authority-bearing URI references, and retest
+      Host, Origin, CORS, CSP, logging, and screenshot/export behavior.
 - [ ] Replace the narrow SQLite coordination-sidecar exception with a strict
-  bit-for-bit read gate if local permissions, backup tooling, or file watchers
-  make empty `-wal` or disposable `-shm` changes harmful, or before remote or
-  multi-user operation. Do not claim that stricter boundary until its read
-  mechanism and source-diff verification are accepted.
+      bit-for-bit read gate if local permissions, backup tooling, or file watchers
+      make empty `-wal` or disposable `-shm` changes harmful, or before remote or
+      multi-user operation. Do not claim that stricter boundary until its read
+      mechanism and source-diff verification are accepted.
 - [ ] Normalize execution timestamps to instants before SQL ranking if Hermes
-  begins storing more than one timestamp offset or format. The local acceptance
-  audit found only valid, consistently offset timestamps, so mixed-offset
-  ranking adds no v0.1 value.
+      begins storing more than one timestamp offset or format. The local acceptance
+      audit found only valid, consistently offset timestamps, so mixed-offset
+      ranking adds no v0.1 value.
 - [ ] Replace heuristic credential-name detection for allowlisted Job URL query
-  and fragment values only if those values appear in the trusted Hermes source,
-  or when the networked/multi-user trust boundary above is activated. The local
-  acceptance audit found no current query or fragment values requiring this
-  complexity. At that gate, preserve the useful origin/path and omit all query
-  and parameter-bearing fragment content instead of growing an endless list of
-  provider-specific signature names.
+      and fragment values only if those values appear in the trusted Hermes source,
+      or when the networked/multi-user trust boundary above is activated. The local
+      acceptance audit found no current query or fragment values requiring this
+      complexity. At that gate, preserve the useful origin/path and omit all query
+      and parameter-bearing fragment content instead of growing an endless list of
+      provider-specific signature names.
 
 ## Milestones
 

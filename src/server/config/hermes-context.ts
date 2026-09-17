@@ -22,7 +22,10 @@ export interface ResolveHermesContextOptions {
   stickyProfile?: string | null;
 }
 
-export interface ResolveHermesEnvironmentOptions extends Omit<ResolveHermesContextOptions, "environmentHome"> {
+export interface ResolveHermesEnvironmentOptions extends Omit<
+  ResolveHermesContextOptions,
+  "environmentHome"
+> {
   environment?: Readonly<Record<string, string | undefined>>;
 }
 
@@ -71,24 +74,42 @@ function contextFromHome(
   if (canonicalHome === canonicalPlatformRoot) {
     return { home: canonicalHome, profile: "default", profileKind: "default", source };
   }
-  if (canonicalHome.startsWith(`${profilesRoot}${path.sep}`) && path.dirname(canonicalHome) === profilesRoot) {
-    return { home: canonicalHome, profile: validateProfileName(path.basename(canonicalHome)), profileKind: "named", source };
+  if (
+    canonicalHome.startsWith(`${profilesRoot}${path.sep}`) &&
+    path.dirname(canonicalHome) === profilesRoot
+  ) {
+    return {
+      home: canonicalHome,
+      profile: validateProfileName(path.basename(canonicalHome)),
+      profileKind: "named",
+      source,
+    };
   }
   return { home: canonicalHome, profile: "custom", profileKind: "custom", source };
 }
 
 export function resolveHermesContext(options: ResolveHermesContextOptions): HermesContext {
-  if (options.explicitHome) return contextFromHome(options.explicitHome, options.platformRoot, "explicit");
-  if (options.environmentHome) return contextFromHome(options.environmentHome, options.platformRoot, "environment");
+  if (options.explicitHome)
+    return contextFromHome(options.explicitHome, options.platformRoot, "explicit");
+  if (options.environmentHome)
+    return contextFromHome(options.environmentHome, options.platformRoot, "environment");
 
   const stickyProfile = options.stickyProfile?.trim();
   if (!stickyProfile || stickyProfile === "default") {
-    return contextFromHome(options.platformRoot, options.platformRoot, stickyProfile ? "sticky" : "platform-default");
+    return contextFromHome(
+      options.platformRoot,
+      options.platformRoot,
+      stickyProfile ? "sticky" : "platform-default",
+    );
   }
 
   const profile = validateProfileName(stickyProfile);
   try {
-    const context = contextFromHome(path.join(options.platformRoot, "profiles", profile), options.platformRoot, "sticky");
+    const context = contextFromHome(
+      path.join(options.platformRoot, "profiles", profile),
+      options.platformRoot,
+      "sticky",
+    );
     if (context.profileKind !== "named" || context.profile !== profile) {
       throw new SourceSecurityError("invalid_profile");
     }
@@ -98,7 +119,9 @@ export function resolveHermesContext(options: ResolveHermesContextOptions): Herm
   }
 }
 
-export function resolveHermesContextFromEnvironment(options: ResolveHermesEnvironmentOptions): HermesContext {
+export function resolveHermesContextFromEnvironment(
+  options: ResolveHermesEnvironmentOptions,
+): HermesContext {
   const environment = options.environment ?? process.env;
   const environmentHome = environment.HERMES_HOME;
   if (options.explicitHome || environmentHome) {
@@ -109,9 +132,10 @@ export function resolveHermesContextFromEnvironment(options: ResolveHermesEnviro
     });
   }
 
-  const stickyProfile = options.stickyProfile === undefined
-    ? readStickyProfile(options.platformRoot)
-    : options.stickyProfile;
+  const stickyProfile =
+    options.stickyProfile === undefined
+      ? readStickyProfile(options.platformRoot)
+      : options.stickyProfile;
   const base = {
     platformRoot: options.platformRoot,
     stickyProfile,

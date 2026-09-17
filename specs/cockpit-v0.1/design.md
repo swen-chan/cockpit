@@ -32,13 +32,13 @@ information hierarchy rather than ornament.
 
 ### Color palette
 
-| Token | Value | Use |
-| --- | --- | --- |
-| Ink | `#0E0E0E` | Primary text, active navigation, strong rules |
-| Canvas | `#F3F1EA` | Main background |
-| Rail | `#E2DFD5` | Navigation and secondary surfaces |
-| Muted | `#6B6962` | Secondary labels and timestamps |
-| Signal | `#C6FF3D` | Read-only/healthy status only |
+| Token  | Value     | Use                                           |
+| ------ | --------- | --------------------------------------------- |
+| Ink    | `#0E0E0E` | Primary text, active navigation, strong rules |
+| Canvas | `#F3F1EA` | Main background                               |
+| Rail   | `#E2DFD5` | Navigation and secondary surfaces             |
+| Muted  | `#6B6962` | Secondary labels and timestamps               |
+| Signal | `#C6FF3D` | Read-only/healthy status only                 |
 
 Warnings use Ink/Canvas with line patterns and labels rather than adding a
 large decorative color system. Error copy may use a restrained dark red token
@@ -75,13 +75,13 @@ introduced during implementation only if contrast testing shows it is needed.
 
 ## Information architecture
 
-| Route | Surface | Primary question |
-| --- | --- | --- |
-| `/` | Overview | What is Hermes's observable state right now? |
-| `/system` | System | What context is influencing Hermes? |
-| `/conversations` | Conversations | What did normal interactive sessions contain? |
-| `/files` | Files | What files are visible in the approved workspace? |
-| `/jobs` | Jobs | What scheduled work exists and what happened recently? |
+| Route            | Surface       | Primary question                                       |
+| ---------------- | ------------- | ------------------------------------------------------ |
+| `/`              | Overview      | What is Hermes's observable state right now?           |
+| `/system`        | System        | What context is influencing Hermes?                    |
+| `/conversations` | Conversations | What did normal interactive sessions contain?          |
+| `/files`         | Files         | What files are visible in the approved workspace?      |
+| `/jobs`          | Jobs          | What scheduled work exists and what happened recently? |
 
 Conversation, file, and system-document details use split panes with local
 selection state rather than multiplying top-level surfaces. Stable row-level
@@ -208,16 +208,16 @@ flowchart LR
 
 ### Proposed dependencies
 
-| Concern | Choice | Reason |
-| --- | --- | --- |
-| SQLite | `better-sqlite3` | Synchronous bounded reads and explicit read-only mode |
-| Boundary validation | `zod` | Narrow unknown JSON/query inputs into typed contracts |
-| YAML | `yaml` | Parse config/frontmatter server-side before allowlisting |
-| Markdown | `react-markdown` + `remark-gfm` | Safe rendering without raw HTML execution |
-| Icons | `lucide-react` | Consistent professional icon set |
-| Fonts | IBM Plex package assets | No runtime font request |
-| Unit/component tests | Vitest + Testing Library | Fast adapter and UI-state coverage |
-| Browser tests | Playwright | Repeatable navigation and rendering smoke checks |
+| Concern              | Choice                          | Reason                                                   |
+| -------------------- | ------------------------------- | -------------------------------------------------------- |
+| SQLite               | `better-sqlite3`                | Synchronous bounded reads and explicit read-only mode    |
+| Boundary validation  | `zod`                           | Narrow unknown JSON/query inputs into typed contracts    |
+| YAML                 | `yaml`                          | Parse config/frontmatter server-side before allowlisting |
+| Markdown             | `react-markdown` + `remark-gfm` | Safe rendering without raw HTML execution                |
+| Icons                | `lucide-react`                  | Consistent professional icon set                         |
+| Fonts                | IBM Plex package assets         | No runtime font request                                  |
+| Unit/component tests | Vitest + Testing Library        | Fast adapter and UI-state coverage                       |
+| Browser tests        | Playwright                      | Repeatable navigation and rendering smoke checks         |
 
 `better-sqlite3` compatibility with the installed Node version is an explicit
 scaffold-time check. If its native binary cannot install, the fallback decision
@@ -372,16 +372,16 @@ pass-through copy of source data.
 All endpoints are same-origin `GET` routes and send `Cache-Control: private,
 no-store`.
 
-| Endpoint | Purpose |
-| --- | --- |
-| `GET /api/overview` | Composed overview registers |
-| `GET /api/system` | System source index and safe summaries |
-| `GET /api/system/context?id=…` | One approved context/skill preview |
-| `GET /api/conversations?cursor=…&limit=…` | Eligible conversation page |
-| `GET /api/conversations/[id]` | Safe transcript and metadata |
-| `GET /api/files?path=…` | Bounded directory listing |
-| `GET /api/files/preview?path=…` | Safe text preview or metadata-only result |
-| `GET /api/jobs` | Job list and bounded execution summary |
+| Endpoint                                  | Purpose                                   |
+| ----------------------------------------- | ----------------------------------------- |
+| `GET /api/overview`                       | Composed overview registers               |
+| `GET /api/system`                         | System source index and safe summaries    |
+| `GET /api/system/context?id=…`            | One approved context/skill preview        |
+| `GET /api/conversations?cursor=…&limit=…` | Eligible conversation page                |
+| `GET /api/conversations/[id]`             | Safe transcript and metadata              |
+| `GET /api/files?path=…`                   | Bounded directory listing                 |
+| `GET /api/files/preview?path=…`           | Safe text preview or metadata-only result |
+| `GET /api/jobs`                           | Job list and bounded execution summary    |
 
 Mutation methods are not exported and are verified to return `405`. Query
 parameters are length-capped and validated before reaching adapters.
@@ -534,17 +534,17 @@ Before reporting implementation complete:
 
 ## Requirement traceability
 
-| Requirement | Primary design sections |
-| --- | --- |
-| R1 | Runtime, HTTP interface, Security design |
-| R2 | Overview, services, freshness/error states |
-| R3 | System, system/config/skills adapters |
-| R4 | Conversations and conversation adapter |
-| R5 | Files, workspace resolver, files adapter |
-| R6 | Jobs and jobs adapter |
-| R7 | Module boundaries, source resolution, adapter contracts |
-| R8 | Bounded reads, caching/concurrency, error states |
-| R9 | Testing strategy and build-quality gate |
+| Requirement | Primary design sections                                 |
+| ----------- | ------------------------------------------------------- |
+| R1          | Runtime, HTTP interface, Security design                |
+| R2          | Overview, services, freshness/error states              |
+| R3          | System, system/config/skills adapters                   |
+| R4          | Conversations and conversation adapter                  |
+| R5          | Files, workspace resolver, files adapter                |
+| R6          | Jobs and jobs adapter                                   |
+| R7          | Module boundaries, source resolution, adapter contracts |
+| R8          | Bounded reads, caching/concurrency, error states        |
+| R9          | Testing strategy and build-quality gate                 |
 
 ## Trade-offs and deferred work
 

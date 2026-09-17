@@ -1,17 +1,10 @@
 import "server-only";
 
+import { containsCredentialText, redactCredentialText } from "@/lib/browser-safety";
+
 const REDACTED = "[REDACTED]";
-const credentialParameterPattern = /^(?:access[-_]?token|api[-_]?key|auth[-_]?token|authorization|client[-_]?secret|cookie|credential|id[-_]?token|pass[-_]?(?:phrase|word)|password|private[-_]?key|refresh[-_]?token|secret|session[-_]?token|token)$/iu;
-const secretKeyPattern = /(authorization|api.?key|client.?secret|cookie|credential|pass.?phrase|password|private.?key|refresh.?token|secret|token)/iu;
-const secretValuePatterns = [
-  /(?<![A-Za-z0-9])(?:access[-_ ]?token|api[-_ ]?key|auth[-_ ]?token|authorization|client[-_ ]?secret|cookie|credential|id[-_ ]?token|pass[-_ ]?phrase|password|private[-_ ]?key|refresh[-_ ]?token|secret|session[-_ ]?token|token)\s*[:=]\s*(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,\r\n}]+)/giu,
-  /(?<![A-Za-z0-9])Bearer\s+[A-Za-z0-9._~+/=-]{8,}/giu,
-  /(?<![A-Za-z0-9])(?:gh[pousr]_|github_pat_)[A-Za-z0-9_-]{8,}/giu,
-  /(?<![A-Za-z0-9])(?:sk-(?:(?:proj|svcacct|ant-api\d+|or-v1)-)[A-Za-z0-9_-]{8,}|sk[-_][A-Za-z0-9]{16,}|sk_(?:live|test)_[A-Za-z0-9]{16,})(?![A-Za-z0-9_-])/giu,
-  /(?<![A-Za-z0-9])(?:AKIA|ASIA)[A-Z0-9]{16}(?![A-Z0-9])/gu,
-  /(?<![A-Za-z0-9])AIza[A-Za-z0-9_-]{35}(?![A-Za-z0-9])/gu,
-  /(?<![A-Za-z0-9])eyJ[A-Za-z0-9_-]{5,2048}\.[A-Za-z0-9_-]{5,8192}\.[A-Za-z0-9_-]{8,2048}(?![A-Za-z0-9_-])/gu,
-];
+const secretKeyPattern =
+  /(authorization|api.?key|client.?secret|cookie|credential|pass.?phrase|password|private.?key|refresh.?token|secret|token)/iu;
 const machinePathPatterns = [
   /(?<![A-Za-z0-9:])\/Users\/[^/\s<>'"`]+(?:\/[^\s<>'"`]*)?/gu,
   /(?<![A-Za-z0-9:])\/home\/[^/\s<>'"`]+(?:\/[^\s<>'"`]*)?/gu,
@@ -19,24 +12,7 @@ const machinePathPatterns = [
 ];
 
 function redactString(value: string): string {
-  return secretValuePatterns.reduce((current, pattern) => current.replace(pattern, REDACTED), value);
-}
-
-function hasCredentialParameter(parameters: URLSearchParams): boolean {
-  return [...parameters.keys()].some((key) => credentialParameterPattern.test(key));
-}
-
-function hasUriCredentials(value: string): boolean {
-  let url: URL;
-  try {
-    url = new URL(value, "http://cockpit.invalid");
-  } catch {
-    return false;
-  }
-  if (url.username || url.password || hasCredentialParameter(url.searchParams)) return true;
-  const fragment = url.hash.slice(1);
-  const fragmentQuery = fragment.includes("?") ? fragment.slice(fragment.indexOf("?") + 1) : fragment;
-  return hasCredentialParameter(new URLSearchParams(fragmentQuery));
+  return redactCredentialText(value);
 }
 
 function redactValue(value: unknown, seen: WeakSet<object>, depth: number): unknown {
@@ -60,7 +36,7 @@ export function redactSecrets(value: unknown): unknown {
 }
 
 export function containsSecrets(value: string): boolean {
-  return redactString(value) !== value || hasUriCredentials(value);
+  return containsCredentialText(value);
 }
 
 export function redactMachinePaths(value: string): string {

@@ -12,30 +12,49 @@ import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
 
+import type { AgentSurface, PublicAgentPanel } from "@/contracts/agents";
+import { panelSurfaceHref, panelSurfaceLabel } from "@/lib/panel-navigation";
 import { cn } from "@/lib/cn";
 
-const items: Array<{ href: Route; label: string; icon: LucideIcon }> = [
-  { href: "/", label: "Overview", icon: Gauge },
-  { href: "/system", label: "System", icon: Settings2 },
-  { href: "/conversations", label: "Conversations", icon: MessagesSquare },
-  { href: "/files", label: "Files", icon: FileText },
-  { href: "/jobs", label: "Jobs", icon: CalendarClock },
+const icons: Readonly<Record<AgentSurface, LucideIcon>> = Object.freeze({
+  overview: Gauge,
+  system: Settings2,
+  conversations: MessagesSquare,
+  files: FileText,
+  jobs: CalendarClock,
+});
+
+const legacyItems: ReadonlyArray<{ href: Route; label: string; surface: AgentSurface }> = [
+  { href: "/", label: "Overview", surface: "overview" },
+  { href: "/system", label: "System", surface: "system" },
+  { href: "/conversations", label: "Conversations", surface: "conversations" },
+  { href: "/files", label: "Files", surface: "files" },
+  { href: "/jobs", label: "Jobs", surface: "jobs" },
 ];
 
-export function Navigation() {
+export function Navigation({ panel }: { panel?: PublicAgentPanel | undefined }) {
   const pathname = usePathname();
+  const items = panel
+    ? panel.surfaces.map((surface) => ({
+        href: panelSurfaceHref(panel.id, surface) as Route,
+        label: panelSurfaceLabel(panel, surface),
+        surface,
+      }))
+    : legacyItems;
 
   return (
     <nav className="primary-nav" aria-label="Primary navigation">
-      {items.map(({ href, icon: Icon, label }) => {
-        const active = href === "/" ? pathname === href : pathname.startsWith(href);
+      {items.map(({ href, label, surface }) => {
+        const active = surface === "overview" ? pathname === href : pathname.startsWith(href);
+        const Icon = icons[surface];
 
         return (
           <Link
             href={href}
-            key={href}
+            key={surface}
             className={cn("nav-link", active && "nav-link-active")}
             aria-current={active ? "page" : undefined}
+            {...(panel ? { prefetch: false } : {})}
           >
             <Icon aria-hidden="true" size={18} strokeWidth={1.7} />
             <span>{label}</span>

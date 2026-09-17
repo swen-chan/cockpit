@@ -22,10 +22,7 @@ import {
   workspaceDirectorySchema,
   workspaceFileSchema,
 } from "@/contracts/source-result";
-import {
-  HERMES_SOURCE_PRESET_ID,
-  resolveSourceManifest,
-} from "@/server/config/source-manifest";
+import { HERMES_SOURCE_PRESET_ID, resolveSourceManifest } from "@/server/config/source-manifest";
 import {
   assertHermesFixtureSourcesUnchanged,
   createHermesFixture,
@@ -43,14 +40,18 @@ function routeFiles(directory: string, prefix = ""): string[] {
     const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
     return entry.isDirectory()
       ? routeFiles(path.join(directory, entry.name), relative)
-      : entry.name === "route.ts" ? [relative] : [];
+      : entry.name === "route.ts"
+        ? [relative]
+        : [];
   });
 }
 
 async function readSafeJson(response: Response): Promise<unknown> {
   expect(response.status).toBe(200);
   expect(response.headers.get("cache-control")).toBe("private, no-store");
-  expect([...response.headers.keys()].filter((key) => key.startsWith("access-control-allow-"))).toEqual([]);
+  expect(
+    [...response.headers.keys()].filter((key) => key.startsWith("access-control-allow-")),
+  ).toEqual([]);
   return response.json() as Promise<unknown>;
 }
 
@@ -72,58 +73,75 @@ describe("GET API security boundary with synthetic local sources", () => {
     const base = "http://127.0.0.1:3000";
 
     try {
-      const overview = overviewSnapshotSchema.parse(await readSafeJson(
-        await overviewRoute.GET(new Request(`${base}/api/overview`)),
-      ));
-      const system = systemSnapshotSchema.parse(await readSafeJson(
-        await systemRoute.GET(new Request(`${base}/api/system`)),
-      ));
-      const skillId = system.sources
-        .find((source) => source.collection?.kind === "skills")
+      const overview = overviewSnapshotSchema.parse(
+        await readSafeJson(await overviewRoute.GET(new Request(`${base}/api/overview`))),
+      );
+      const system = systemSnapshotSchema.parse(
+        await readSafeJson(await systemRoute.GET(new Request(`${base}/api/system`))),
+      );
+      const skillId = system.sources.find((source) => source.collection?.kind === "skills")
         ?.collection?.items[0]?.id;
       expect(skillId).toMatch(/^skill-[a-f0-9]{24}$/u);
-      const systemContext = systemSourceSchema.parse(await readSafeJson(
-        await systemContextRoute.GET(new Request(`${base}/api/system/context?id=${encodeURIComponent(skillId!)}`)),
-      ));
+      const systemContext = systemSourceSchema.parse(
+        await readSafeJson(
+          await systemContextRoute.GET(
+            new Request(`${base}/api/system/context?id=${encodeURIComponent(skillId!)}`),
+          ),
+        ),
+      );
 
-      const conversations = conversationPageSchema.parse(await readSafeJson(
-        await conversationsRoute.GET(new Request(`${base}/api/conversations?limit=5`)),
-      ));
+      const conversations = conversationPageSchema.parse(
+        await readSafeJson(
+          await conversationsRoute.GET(new Request(`${base}/api/conversations?limit=5`)),
+        ),
+      );
       expect(conversations.items).toHaveLength(5);
       expect(conversations.nextCursor).not.toBeNull();
-      const olderConversations = conversationPageSchema.parse(await readSafeJson(
-        await conversationsRoute.GET(
-          new Request(`${base}/api/conversations?limit=5&cursor=${encodeURIComponent(conversations.nextCursor!)}`),
+      const olderConversations = conversationPageSchema.parse(
+        await readSafeJson(
+          await conversationsRoute.GET(
+            new Request(
+              `${base}/api/conversations?limit=5&cursor=${encodeURIComponent(conversations.nextCursor!)}`,
+            ),
+          ),
         ),
-      ));
+      );
       expect(olderConversations.items).toHaveLength(1);
       expect(olderConversations.items[0]?.title).toBe("Synthetic conversation 6");
       expect(olderConversations.nextCursor).toBeNull();
 
       const conversationId = conversations.items[0]?.id;
       expect(conversationId).toMatch(/^conversation-/u);
-      const conversation = conversationSchema.parse(await readSafeJson(
-        await conversationRoute.GET(
-          new Request(`${base}/api/conversations/${encodeURIComponent(conversationId!)}`),
-          { params: Promise.resolve({ id: conversationId! }) },
+      const conversation = conversationSchema.parse(
+        await readSafeJson(
+          await conversationRoute.GET(
+            new Request(`${base}/api/conversations/${encodeURIComponent(conversationId!)}`),
+            { params: Promise.resolve({ id: conversationId! }) },
+          ),
         ),
-      ));
+      );
 
-      const rootFiles = workspaceDirectorySchema.parse(await readSafeJson(
-        await filesRoute.GET(new Request(`${base}/api/files`)),
-      ));
-      const nestedFiles = workspaceDirectorySchema.parse(await readSafeJson(
-        await filesRoute.GET(new Request(`${base}/api/files?path=nested`)),
-      ));
-      const file = workspaceFileSchema.parse(await readSafeJson(
-        await filePreviewRoute.GET(new Request(`${base}/api/files/preview?path=docs%2Fnotes.md`)),
-      ));
-      const nestedFile = workspaceFileSchema.parse(await readSafeJson(
-        await filePreviewRoute.GET(new Request(`${base}/api/files/preview?path=nested%2Fnotes.md`)),
-      ));
-      const jobs = jobsSnapshotSchema.parse(await readSafeJson(
-        await jobsRoute.GET(new Request(`${base}/api/jobs`)),
-      ));
+      const rootFiles = workspaceDirectorySchema.parse(
+        await readSafeJson(await filesRoute.GET(new Request(`${base}/api/files`))),
+      );
+      const nestedFiles = workspaceDirectorySchema.parse(
+        await readSafeJson(await filesRoute.GET(new Request(`${base}/api/files?path=nested`))),
+      );
+      const file = workspaceFileSchema.parse(
+        await readSafeJson(
+          await filePreviewRoute.GET(new Request(`${base}/api/files/preview?path=docs%2Fnotes.md`)),
+        ),
+      );
+      const nestedFile = workspaceFileSchema.parse(
+        await readSafeJson(
+          await filePreviewRoute.GET(
+            new Request(`${base}/api/files/preview?path=nested%2Fnotes.md`),
+          ),
+        ),
+      );
+      const jobs = jobsSnapshotSchema.parse(
+        await readSafeJson(await jobsRoute.GET(new Request(`${base}/api/jobs`))),
+      );
 
       const canonicalHome = realpathSync(fixture.home);
       expect(system.profile.homeLabel).toBe(canonicalHome);
@@ -133,15 +151,19 @@ describe("GET API security boundary with synthetic local sources", () => {
       expect(system.sources.every((source) => source.stamp.state === "ready")).toBe(true);
       expect(systemContext.content).toContain("bounded-skill-marker");
       expect(conversation.messages.map(({ role }) => role)).toEqual(["user", "tool", "assistant"]);
-      expect(rootFiles.items).toEqual(expect.arrayContaining([
-        expect.objectContaining({ entryType: "directory", path: "empty" }),
-        expect.objectContaining({ entryType: "directory", path: "nested" }),
-        expect.objectContaining({ path: "manual.pdf", previewState: "metadata-only" }),
-      ]));
-      expect(nestedFiles.items).toContainEqual(expect.objectContaining({
-        path: "nested/notes.md",
-        previewState: "available",
-      }));
+      expect(rootFiles.items).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ entryType: "directory", path: "empty" }),
+          expect.objectContaining({ entryType: "directory", path: "nested" }),
+          expect.objectContaining({ path: "manual.pdf", previewState: "metadata-only" }),
+        ]),
+      );
+      expect(nestedFiles.items).toContainEqual(
+        expect.objectContaining({
+          path: "nested/notes.md",
+          previewState: "available",
+        }),
+      );
       expect(file.content).toContain("[REDACTED]");
       expect(nestedFile.content).toContain("nested-file-marker");
       expect(jobs).toMatchObject({ definitionsState: "ready", executionsState: "ready" });
@@ -181,7 +203,8 @@ describe("GET API security boundary with synthetic local sources", () => {
         systemContext,
       });
       for (const marker of forbiddenHermesFixtureMarkers) expect(serialized).not.toContain(marker);
-      for (const marker of privateHermesFixturePersistenceMarkers) expect(serialized).not.toContain(marker);
+      for (const marker of privateHermesFixturePersistenceMarkers)
+        expect(serialized).not.toContain(marker);
     } finally {
       assertHermesFixtureSourcesUnchanged(sourceSnapshot);
     }
@@ -205,19 +228,23 @@ describe("GET API security boundary with synthetic local sources", () => {
       COCKPIT_SOURCE_PRESET: HERMES_SOURCE_PRESET_ID,
     }).manifest;
     const manifestPath = path.join(fixture.root, "private-source-manifest-marker.json");
-    writeFileSync(manifestPath, JSON.stringify({
-      ...presetManifest,
-      conversation: {
-        ...presetManifest.conversation,
-        databaseRelativePath: privateDatabaseName,
-        messages: {
-          ...presetManifest.conversation.messages,
-          table: "private_message_records_marker",
+    writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        ...presetManifest,
+        conversation: {
+          ...presetManifest.conversation,
+          databaseRelativePath: privateDatabaseName,
+          messages: {
+            ...presetManifest.conversation.messages,
+            table: "private_message_records_marker",
+          },
+          promptTable: "private_prompt_records_marker",
+          sessionTable: "private_session_records_marker",
         },
-        promptTable: "private_prompt_records_marker",
-        sessionTable: "private_session_records_marker",
-      },
-    }), "utf8");
+      }),
+      "utf8",
+    );
 
     for (const [name, value] of Object.entries(fixture.environment)) vi.stubEnv(name, value);
     vi.stubEnv("COCKPIT_SOURCE_PRESET", "");
@@ -226,12 +253,14 @@ describe("GET API security boundary with synthetic local sources", () => {
     const base = "http://127.0.0.1:3000";
 
     try {
-      const conversations = conversationPageSchema.parse(await readSafeJson(
-        await conversationsRoute.GET(new Request(`${base}/api/conversations?limit=5`)),
-      ));
-      const system = systemSnapshotSchema.parse(await readSafeJson(
-        await systemRoute.GET(new Request(`${base}/api/system`)),
-      ));
+      const conversations = conversationPageSchema.parse(
+        await readSafeJson(
+          await conversationsRoute.GET(new Request(`${base}/api/conversations?limit=5`)),
+        ),
+      );
+      const system = systemSnapshotSchema.parse(
+        await readSafeJson(await systemRoute.GET(new Request(`${base}/api/system`))),
+      );
       const prompt = system.sources.find((source) => source.id === "prompt");
       expect(conversations.items).toHaveLength(5);
       expect(prompt?.stamp.state).toBe("ready");
@@ -268,6 +297,14 @@ describe("GET API security boundary with synthetic local sources", () => {
     }
 
     expect(routeFiles(path.join(process.cwd(), "src", "app", "api")).sort()).toEqual([
+      "agents/[panelId]/conversations/[id]/route.ts",
+      "agents/[panelId]/conversations/route.ts",
+      "agents/[panelId]/files/preview/route.ts",
+      "agents/[panelId]/files/route.ts",
+      "agents/[panelId]/jobs/route.ts",
+      "agents/[panelId]/overview/route.ts",
+      "agents/[panelId]/system/context/route.ts",
+      "agents/[panelId]/system/route.ts",
       "conversations/[id]/route.ts",
       "conversations/route.ts",
       "files/preview/route.ts",

@@ -4,7 +4,10 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { resolveHermesContext, resolveHermesContextFromEnvironment } from "@/server/config/hermes-context";
+import {
+  resolveHermesContext,
+  resolveHermesContextFromEnvironment,
+} from "@/server/config/hermes-context";
 
 describe("Hermes context resolution", () => {
   let fixtureRoot = "";
@@ -29,7 +32,12 @@ describe("Hermes context resolution", () => {
       environmentHome: environment,
       stickyProfile: "research",
     });
-    expect(context).toMatchObject({ home: realpathSync(explicit), profile: "custom", profileKind: "custom", source: "explicit" });
+    expect(context).toMatchObject({
+      home: realpathSync(explicit),
+      profile: "custom",
+      profileKind: "custom",
+      source: "explicit",
+    });
   });
 
   it("resolves default and named sticky profiles", () => {
@@ -48,10 +56,16 @@ describe("Hermes context resolution", () => {
   it("reads HERMES_HOME from the supplied request environment", () => {
     const environmentHome = path.join(fixtureRoot, "environment");
     mkdirSync(environmentHome);
-    expect(resolveHermesContextFromEnvironment({
-      platformRoot,
-      environment: { HERMES_HOME: environmentHome },
-    })).toMatchObject({ home: realpathSync(environmentHome), source: "environment", profileKind: "custom" });
+    expect(
+      resolveHermesContextFromEnvironment({
+        platformRoot,
+        environment: { HERMES_HOME: environmentHome },
+      }),
+    ).toMatchObject({
+      home: realpathSync(environmentHome),
+      source: "environment",
+      profileKind: "custom",
+    });
   });
 
   it("reads the sticky active profile from disk for each environment resolution", () => {
@@ -75,16 +89,19 @@ describe("Hermes context resolution", () => {
 
   it("fails closed when the sticky active profile is unavailable", () => {
     writeFileSync(path.join(platformRoot, "active_profile"), "missing\n", "utf8");
-    expect(() => resolveHermesContextFromEnvironment({ platformRoot, environment: {} })).toThrowError(
-      expect.objectContaining({ code: "invalid_profile" }),
-    );
+    expect(() =>
+      resolveHermesContextFromEnvironment({ platformRoot, environment: {} }),
+    ).toThrowError(expect.objectContaining({ code: "invalid_profile" }));
   });
 
-  it.each(["../escape", ".hidden", "missing profile"])("rejects invalid profile name %s", (profile) => {
-    expect(() => resolveHermesContext({ platformRoot, stickyProfile: profile })).toThrowError(
-      expect.objectContaining({ code: "invalid_profile" }),
-    );
-  });
+  it.each(["../escape", ".hidden", "missing profile"])(
+    "rejects invalid profile name %s",
+    (profile) => {
+      expect(() => resolveHermesContext({ platformRoot, stickyProfile: profile })).toThrowError(
+        expect.objectContaining({ code: "invalid_profile" }),
+      );
+    },
+  );
 
   it("reports a missing named profile without falling back", () => {
     expect(() => resolveHermesContext({ platformRoot, stickyProfile: "missing" })).toThrowError(
@@ -102,7 +119,10 @@ describe("Hermes context resolution", () => {
   });
 
   it("rejects a named profile symlink that resolves to a different profile", () => {
-    symlinkSync(path.join(platformRoot, "profiles", "research"), path.join(platformRoot, "profiles", "alias"));
+    symlinkSync(
+      path.join(platformRoot, "profiles", "research"),
+      path.join(platformRoot, "profiles", "alias"),
+    );
     expect(() => resolveHermesContext({ platformRoot, stickyProfile: "alias" })).toThrowError(
       expect.objectContaining({ code: "invalid_profile" }),
     );

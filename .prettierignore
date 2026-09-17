@@ -1,0 +1,23 @@
+# Dependencies and generated output
+node_modules
+.next
+out
+build
+coverage
+playwright-report
+test-results
+
+# Tool-owned files
+pnpm-lock.yaml
+next-env.d.ts
+*.tsbuildinfo
+
+# Exact upstream fixtures with recorded SHA-256 provenance
+tests/fixtures/codex-0.145.0/InitializeParams.json
+tests/fixtures/codex-0.145.0/InitializeResponse.json
+tests/fixtures/codex-0.145.0/ThreadListParams.json
+tests/fixtures/codex-0.145.0/ThreadListResponse.json
+tests/fixtures/codex-0.145.0/ThreadReadParams.json
+tests/fixtures/codex-0.145.0/ThreadReadResponse.json
+tests/fixtures/codex-0.145.0/LICENSE
+tests/fixtures/codex-0.145.0/NOTICE

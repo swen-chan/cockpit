@@ -10,10 +10,7 @@ import type {
 import { overviewSnapshotSchema } from "@/contracts/source-result";
 import { mockConversations, mockFiles, mockJobs, mockSystemSources } from "@/lib/mock-data";
 import { SourceSecurityError } from "@/server/security/errors";
-import {
-  loadOverviewSnapshot,
-  type OverviewReaders,
-} from "@/server/services/overview";
+import { loadOverviewSnapshot, type OverviewReaders } from "@/server/services/overview";
 
 const observedAt = "2026-09-09T03:30:00.000Z";
 const now = new Date(observedAt);
@@ -51,8 +48,9 @@ function conversations(): ConversationPage {
 }
 
 function system(): SystemSource[] {
-  return ["prompt", "memory", "user", "soul", "agents"]
-    .map((id) => mockSystemSources.find((source) => source.id === id)!);
+  return ["prompt", "memory", "user", "soul", "agents"].map((id) =>
+    mockSystemSources.find((source) => source.id === id)!,
+  );
 }
 
 function jobs(): JobsSnapshot {
@@ -122,7 +120,9 @@ describe("Overview composition service", () => {
     const snapshot = await loadOverviewSnapshot({
       now,
       readers: readers({
-        [readerName]: async () => { throw new SourceSecurityError(code); },
+        [readerName]: async () => {
+          throw new SourceSecurityError(code);
+        },
       }),
     });
 
@@ -137,14 +137,18 @@ describe("Overview composition service", () => {
     const snapshot = await loadOverviewSnapshot({
       now,
       readers: readers({
-        conversations: async () => { throw new SourceSecurityError("missing_source"); },
+        conversations: async () => {
+          throw new SourceSecurityError("missing_source");
+        },
         jobs: async () => ({
           jobs: [],
           observedAt,
           definitionsState: "error",
           executionsState: "unavailable",
         }),
-        workspace: async () => { throw new SourceSecurityError("source_busy"); },
+        workspace: async () => {
+          throw new SourceSecurityError("source_busy");
+        },
       }),
     });
 
@@ -157,9 +161,11 @@ describe("Overview composition service", () => {
   });
 
   it("keeps partial profile, System, and Jobs results visible", async () => {
-    const mixedSystem = system().map((source) => source.id === "memory"
-      ? { ...source, stamp: { ...source.stamp, state: "unavailable" as const } }
-      : source);
+    const mixedSystem = system().map((source) =>
+      source.id === "memory"
+        ? { ...source, stamp: { ...source.stamp, state: "unavailable" as const } }
+        : source,
+    );
     const snapshot = await loadOverviewSnapshot({
       now,
       readers: readers({
@@ -169,10 +175,20 @@ describe("Overview composition service", () => {
       }),
     });
 
-    expect(snapshot.profile).toMatchObject({ state: "ready", configState: "error", profile: "default" });
+    expect(snapshot.profile).toMatchObject({
+      state: "ready",
+      configState: "error",
+      profile: "default",
+    });
     expect(snapshot.system.state).toBe("ready");
-    expect(snapshot.system.items.find((source) => source.id === "memory")?.state).toBe("unavailable");
-    expect(snapshot.jobs).toMatchObject({ state: "ready", executionsState: "unavailable", total: mockJobs.length });
+    expect(snapshot.system.items.find((source) => source.id === "memory")?.state).toBe(
+      "unavailable",
+    );
+    expect(snapshot.jobs).toMatchObject({
+      state: "ready",
+      executionsState: "unavailable",
+      total: mockJobs.length,
+    });
   });
 
   it("distinguishes available empty lists from failed sources", async () => {
@@ -180,13 +196,30 @@ describe("Overview composition service", () => {
       now,
       readers: readers({
         conversations: async () => ({ items: [], nextCursor: null, observedAt }),
-        jobs: async () => ({ jobs: [], observedAt, definitionsState: "ready", executionsState: "ready" }),
-        workspace: async () => ({ path: "", parentPath: null, items: [], observedAt, truncated: false }),
+        jobs: async () => ({
+          jobs: [],
+          observedAt,
+          definitionsState: "ready",
+          executionsState: "ready",
+        }),
+        workspace: async () => ({
+          path: "",
+          parentPath: null,
+          items: [],
+          observedAt,
+          truncated: false,
+        }),
       }),
     });
 
     expect(snapshot.conversations).toMatchObject({ state: "ready", items: [], hasMore: false });
-    expect(snapshot.jobs).toMatchObject({ state: "ready", total: 0, enabled: 0, paused: 0, failedLastRun: 0 });
+    expect(snapshot.jobs).toMatchObject({
+      state: "ready",
+      total: 0,
+      enabled: 0,
+      paused: 0,
+      failedLastRun: 0,
+    });
     expect(snapshot.workspace).toMatchObject({ state: "ready", loadedCount: 0, items: [] });
   });
 
@@ -201,8 +234,20 @@ describe("Overview composition service", () => {
           executionsState: "ready",
           jobs: [
             { ...base, id: "running", name: "Running", state: "running", nextRun: "invalid" },
-            { ...base, id: "later", name: "Later", state: "enabled", nextRun: "2026-09-10T02:00:00Z" },
-            { ...base, id: "earlier", name: "Earlier", state: "enabled", nextRun: "2026-09-10T01:00:00Z" },
+            {
+              ...base,
+              id: "later",
+              name: "Later",
+              state: "enabled",
+              nextRun: "2026-09-10T02:00:00Z",
+            },
+            {
+              ...base,
+              id: "earlier",
+              name: "Earlier",
+              state: "enabled",
+              nextRun: "2026-09-10T01:00:00Z",
+            },
           ],
         }),
       }),

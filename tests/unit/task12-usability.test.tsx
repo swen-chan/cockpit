@@ -23,16 +23,19 @@ function asConversationSummary(conversation: (typeof mockConversations)[number])
 }
 
 function stubStackedLayout(matches = true) {
-  vi.stubGlobal("matchMedia", vi.fn().mockImplementation((query: string) => ({
-    matches,
-    media: query,
-    onchange: null,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    addListener: vi.fn(),
-    removeListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-  })));
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn().mockImplementation((query: string) => ({
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  );
 }
 
 describe("Task 12 usability closure", () => {
@@ -54,7 +57,10 @@ describe("Task 12 usability closure", () => {
     const nextJob = mockJobs[1]!;
     fireEvent.click(screen.getByRole("button", { name: nextJob.name }));
     expect(screen.getByRole("region", { name: `${nextJob.name} details` })).toHaveFocus();
-    expect(screen.getByRole("region", { name: "Scheduled jobs table" })).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("region", { name: "Scheduled jobs table" })).toHaveAttribute(
+      "tabindex",
+      "0",
+    );
   });
 
   it("does not steal focus from the selected control in the wide layout", () => {
@@ -71,7 +77,10 @@ describe("Task 12 usability closure", () => {
 
   it("announces conversation loading and moves focus to the selected transcript", () => {
     stubStackedLayout();
-    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => undefined)));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => undefined)),
+    );
     const page = {
       items: mockConversations.slice(0, 2).map(asConversationSummary),
       nextCursor: "cursor-fixture",
@@ -79,9 +88,13 @@ describe("Task 12 usability closure", () => {
     };
     render(<ConversationBrowser initialPage={page} initialConversation={mockConversations[0]!} />);
 
-    const paginationNote = screen.getByText("2 sessions loaded. Load older eligible sessions as needed.");
+    const paginationNote = screen.getByText(
+      "2 sessions loaded. Load older eligible sessions as needed.",
+    );
     expect(paginationNote).toHaveAttribute("role", "status");
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(mockConversations[1]!.title, "i") }));
+    fireEvent.click(
+      screen.getByRole("button", { name: new RegExp(mockConversations[1]!.title, "i") }),
+    );
 
     const title = screen.getByRole("heading", { name: mockConversations[1]!.title });
     expect(title).toHaveFocus();
@@ -89,7 +102,10 @@ describe("Task 12 usability closure", () => {
   });
 
   it("exposes load-more progress without replacing the loaded conversation list", () => {
-    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => undefined)));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => undefined)),
+    );
     render(
       <ConversationBrowser
         initialPage={{
@@ -103,21 +119,29 @@ describe("Task 12 usability closure", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Show more" }));
 
-    expect(screen.getByRole("region", { name: "Eligible conversations" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("region", { name: "Eligible conversations" })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
     expect(screen.getByRole("button", { name: "Loading…" })).toHaveAttribute("aria-busy", "true");
-    expect(screen.getByRole("button", { name: new RegExp(mockConversations[0]!.title, "i") })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: new RegExp(mockConversations[0]!.title, "i") }),
+    ).toBeInTheDocument();
   });
 
   it("moves focus to the final pagination status when Show more is removed", async () => {
     const nextConversation = asConversationSummary(mockConversations[2]!);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        items: [nextConversation],
-        nextCursor: null,
-        observedAt: "2026-09-07T00:00:00.000Z",
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          items: [nextConversation],
+          nextCursor: null,
+          observedAt: "2026-09-07T00:00:00.000Z",
+        }),
       }),
-    }));
+    );
     render(
       <ConversationBrowser
         initialPage={{
@@ -148,7 +172,10 @@ describe("Task 12 usability closure", () => {
       modifiedAt: "2026-09-08T00:00:00.000Z",
       previewState: "unavailable" as const,
     };
-    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => undefined)));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => undefined)),
+    );
     render(
       <FileBrowser
         initialDirectory={{
@@ -166,7 +193,10 @@ describe("Task 12 usability closure", () => {
     directoryButton.focus();
     fireEvent.click(directoryButton);
 
-    expect(screen.getByRole("region", { name: "Workspace files" })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("region", { name: "Workspace files" })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
     expect(directoryButton).toHaveFocus();
     expect(screen.getByRole("heading", { name: mockFiles[0]!.name })).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "Search this file" })).toBeInTheDocument();
@@ -191,7 +221,9 @@ describe("Task 12 usability closure", () => {
     const directoryPane = screen.getByRole("region", { name: "Workspace files" });
     const previewPane = screen.getByRole("article", { name: "Select a file" });
     expect(directoryPane).toHaveTextContent("The requested local source is unavailable.");
-    expect(previewPane).toHaveTextContent("Choose a file or open a directory from the approved workspace.");
+    expect(previewPane).toHaveTextContent(
+      "Choose a file or open a directory from the approved workspace.",
+    );
     expect(previewPane).not.toHaveTextContent("The requested local source is unavailable.");
     const metadata = screen.getByRole("complementary", { name: "File metadata" });
     expect(metadata).toHaveTextContent("Load failed");
@@ -226,8 +258,9 @@ describe("Task 12 usability closure", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /docs.*Directory/is }));
 
-    expect(await screen.findByText("The selected directory could not be safely loaded."))
-      .toBeInTheDocument();
+    expect(
+      await screen.findByText("The selected directory could not be safely loaded."),
+    ).toBeInTheDocument();
     const metadata = screen.getByRole("complementary", { name: "File metadata" });
     expect(metadata).toHaveTextContent(/Entries\s*2/);
     expect(metadata).not.toHaveTextContent("Load failed");
@@ -288,9 +321,13 @@ describe("Task 12 usability closure", () => {
     let resolveFile!: (response: MockResponse) => void;
     const fetchMock = vi.fn().mockImplementation((input: string) => {
       if (input.startsWith("/api/files?")) {
-        return new Promise<MockResponse>((resolve) => { resolveDirectory = resolve; });
+        return new Promise<MockResponse>((resolve) => {
+          resolveDirectory = resolve;
+        });
       }
-      return new Promise<MockResponse>((resolve) => { resolveFile = resolve; });
+      return new Promise<MockResponse>((resolve) => {
+        resolveFile = resolve;
+      });
     });
     vi.stubGlobal("fetch", fetchMock);
     render(
@@ -324,7 +361,10 @@ describe("Task 12 usability closure", () => {
       });
     });
     await act(async () => {
-      resolveFile({ ok: true, json: async () => ({ ...mockFiles[0]!, content: "Latest file preview." }) });
+      resolveFile({
+        ok: true,
+        json: async () => ({ ...mockFiles[0]!, content: "Latest file preview." }),
+      });
     });
 
     expect(screen.getByLabelText("Current workspace directory root")).toBeInTheDocument();
@@ -355,16 +395,19 @@ describe("Task 12 usability closure", () => {
       modifiedAt: "2026-09-08T00:00:00.000Z",
       previewState: "available" as const,
     };
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        path: "docs",
-        parentPath: "",
-        items: [nestedFile],
-        observedAt: "2026-09-08T00:00:00.000Z",
-        truncated: false,
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          path: "docs",
+          parentPath: "",
+          items: [nestedFile],
+          observedAt: "2026-09-08T00:00:00.000Z",
+          truncated: false,
+        }),
       }),
-    }));
+    );
     render(
       <FileBrowser
         initialDirectory={{
@@ -406,7 +449,10 @@ describe("Task 12 usability closure", () => {
     fireEvent.click(screen.getByRole("button", { name: new RegExp(textFile.name, "i") }));
 
     expect(screen.getByRole("heading", { name: textFile.name })).toHaveFocus();
-    expect(await screen.findByRole("region", { name: `${textFile.name} preview` })).toHaveAttribute("tabindex", "0");
+    expect(await screen.findByRole("region", { name: `${textFile.name} preview` })).toHaveAttribute(
+      "tabindex",
+      "0",
+    );
   });
 
   it("formats known System timestamps and uses production-safe bounded copy", () => {
@@ -416,14 +462,14 @@ describe("Task 12 usability closure", () => {
         ...mockSystemSources.find((item) => item.id === "memory")!.stamp,
         truncated: true,
       },
-      metadata: [
-        { label: "Modified", value: "2026-08-22T07:51:00.000Z", mono: true },
-      ],
+      metadata: [{ label: "Modified", value: "2026-08-22T07:51:00.000Z", mono: true }],
     };
     render(<SystemBrowser sources={[source]} />);
 
     expect(screen.getByText("2026-08-22 15:51 CST")).toBeInTheDocument();
-    expect(screen.getByText("Preview is bounded. Additional source content is not shown.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Preview is bounded. Additional source content is not shown."),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/fixture/i)).not.toBeInTheDocument();
   });
 });

@@ -3,7 +3,12 @@ import "server-only";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import path from "node:path";
 
-import type { Conversation, ConversationMessage, ConversationPage, ConversationSummary } from "@/contracts/cockpit";
+import type {
+  Conversation,
+  ConversationMessage,
+  ConversationPage,
+  ConversationSummary,
+} from "@/contracts/cockpit";
 import { safeIdentifier } from "@/server/adapters/safe-values";
 import type { HermesContext } from "@/server/config/hermes-context";
 import type { PrivateSourceManifest } from "@/server/config/source-manifest";
@@ -19,14 +24,27 @@ type DatabaseReader = <T>(
   options: { protectedSourceRoots: readonly string[] },
 ) => Promise<T>;
 
-export interface ConversationReadOptions {
-  databaseReader?: DatabaseReader;
-}
-
 interface PrivateIdentity {
   rawId: string;
   time: number;
   version: 1;
+}
+
+export interface ConversationCursorIdentity {
+  rawId: string;
+  time: number;
+}
+
+export interface ConversationIdentityCodec {
+  encodeTask(rawId: string, time: number): string;
+  decodeTask(value: string): string;
+  encodeCursor(rawId: string, time: number): string;
+  decodeCursor(value: string): ConversationCursorIdentity;
+}
+
+export interface ConversationReadOptions {
+  databaseReader?: DatabaseReader;
+  identityCodec?: ConversationIdentityCodec;
 }
 
 interface ConversationSchema {
@@ -88,7 +106,10 @@ function quoteIdentifier(identifier: string): string {
   return `"${identifier.replaceAll('"', '""')}"`;
 }
 
-function mappedColumn(available: ReadonlySet<string>, identifier: string | undefined): string | null {
+function mappedColumn(
+  available: ReadonlySet<string>,
+  identifier: string | undefined,
+): string | null {
   return identifier && available.has(identifier) ? quoteIdentifier(identifier) : null;
 }
 
@@ -99,12 +120,17 @@ function requiredColumn(available: ReadonlySet<string>, identifier: string): str
 }
 
 function tableColumns(database: ReadOnlyDatabase, table: string): Set<string> {
-  const rows = database.prepare<[], { name: string }>(`PRAGMA table_info(${quoteIdentifier(table)})`).all();
+  const rows = database
+    .prepare<[], { name: string }>(`PRAGMA table_info(${quoteIdentifier(table)})`)
+    .all();
   if (rows.length === 0) throw new SourceSecurityError("source_malformed");
   return new Set(rows.map((row) => row.name));
 }
 
-function inspectSchema(database: ReadOnlyDatabase, manifest: ConversationManifest): ConversationSchema {
+function inspectSchema(
+  database: ReadOnlyDatabase,
+  manifest: ConversationManifest,
+): ConversationSchema {
   const messageManifest = manifest.messages;
   if (!messageManifest) throw new SourceSecurityError("source_malformed");
   const sessionColumns = tableColumns(database, manifest.sessionTable);
@@ -150,7 +176,9 @@ function eligibility(schema: ConversationSchema): string {
 
 function visibleMessageFilter(schema: ConversationSchema, alias: string): string {
   const message = schema.messages;
-  const compactedFilter = message.compacted ? `AND COALESCE(${alias}.${message.compacted}, 0) = 0` : "";
+  const compactedFilter = message.compacted
+    ? `AND COALESCE(${alias}.${message.compacted}, 0) = 0`
+    : "";
   const displayFilter = message.displayKind
     ? `AND COALESCE(${alias}.${message.displayKind}, '') NOT IN ('hidden', 'internal_notification')`
     : "";
@@ -175,16 +203,25 @@ function activityExpression(schema: ConversationSchema): string {
 }
 
 function identityKey(context: HermesContext, manifest: ConversationManifest): Buffer {
-  return createHash("sha256").update(JSON.stringify({
-    database: manifest.databaseRelativePath,
-    home: context.home,
-    id: manifest.sessionColumns.id,
-    namespace: "cockpit-conversation-token-v1",
-    table: manifest.sessionTable,
-  })).digest();
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        database: manifest.databaseRelativePath,
+        home: context.home,
+        id: manifest.sessionColumns.id,
+        namespace: "cockpit-conversation-token-v1",
+        table: manifest.sessionTable,
+      }),
+    )
+    .digest();
 }
 
-function encodeIdentity(prefix: "conversation" | "cursor", rawId: string, time: number, key: Buffer): string {
+function encodeIdentity(
+  prefix: "conversation" | "cursor",
+  rawId: string,
+  time: number,
+  key: Buffer,
+): string {
   const initializationVector = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, initializationVector);
   const payload: PrivateIdentity = { rawId, time, version: 1 };
@@ -192,8 +229,16 @@ function encodeIdentity(prefix: "conversation" | "cursor", rawId: string, time: 
   return `${prefix}-${Buffer.concat([initializationVector, cipher.getAuthTag(), encrypted]).toString("base64url")}`;
 }
 
-function decodeIdentity(value: string, prefix: "conversation" | "cursor", key: Buffer): PrivateIdentity {
-  if (typeof value !== "string" || value.length < prefix.length + 2 || value.length > maxCursorCharacters) {
+function decodeIdentity(
+  value: string,
+  prefix: "conversation" | "cursor",
+  key: Buffer,
+): PrivateIdentity {
+  if (
+    typeof value !== "string" ||
+    value.length < prefix.length + 2 ||
+    value.length > maxCursorCharacters
+  ) {
     throw new SourceSecurityError("invalid_path");
   }
   const marker = `${prefix}-`;
@@ -203,17 +248,22 @@ function decodeIdentity(value: string, prefix: "conversation" | "cursor", key: B
     if (token.length < 29) throw new Error("invalid identity");
     const decipher = createDecipheriv("aes-256-gcm", key, token.subarray(0, 12));
     decipher.setAuthTag(token.subarray(12, 28));
-    const decrypted = Buffer.concat([decipher.update(token.subarray(28)), decipher.final()]).toString("utf8");
+    const decrypted = Buffer.concat([
+      decipher.update(token.subarray(28)),
+      decipher.final(),
+    ]).toString("utf8");
     const parsed: unknown = JSON.parse(decrypted);
     if (typeof parsed !== "object" || parsed === null) throw new Error("invalid identity");
     const candidate = parsed as Partial<PrivateIdentity>;
-    if (candidate.version !== 1
-      || typeof candidate.time !== "number"
-      || !Number.isFinite(candidate.time)
-      || candidate.time <= 0
-      || typeof candidate.rawId !== "string"
-      || candidate.rawId.length < 1
-      || candidate.rawId.length > 200) {
+    if (
+      candidate.version !== 1 ||
+      typeof candidate.time !== "number" ||
+      !Number.isFinite(candidate.time) ||
+      candidate.time <= 0 ||
+      typeof candidate.rawId !== "string" ||
+      candidate.rawId.length < 1 ||
+      candidate.rawId.length > 200
+    ) {
       throw new Error("invalid identity");
     }
     return { rawId: candidate.rawId, time: candidate.time, version: 1 };
@@ -222,8 +272,24 @@ function decodeIdentity(value: string, prefix: "conversation" | "cursor", key: B
   }
 }
 
+function legacyIdentityCodec(
+  context: HermesContext,
+  manifest: ConversationManifest,
+): ConversationIdentityCodec {
+  const key = identityKey(context, manifest);
+  return Object.freeze({
+    encodeTask: (rawId: string, time: number) => encodeIdentity("conversation", rawId, time, key),
+    decodeTask: (value: string) => decodeIdentity(value, "conversation", key).rawId,
+    encodeCursor: (rawId: string, time: number) => encodeIdentity("cursor", rawId, time, key),
+    decodeCursor: (value: string) => {
+      const identity = decodeIdentity(value, "cursor", key);
+      return { rawId: identity.rawId, time: identity.time };
+    },
+  });
+}
+
 function safeCount(value: number | null): number {
-  return Number.isSafeInteger(value) && (value ?? -1) >= 0 ? value ?? 0 : 0;
+  return Number.isSafeInteger(value) && (value ?? -1) >= 0 ? (value ?? 0) : 0;
 }
 
 function safeTime(value: number, fallback: number): string {
@@ -236,15 +302,25 @@ function safeTime(value: number, fallback: number): string {
 function safePreview(value: string | null): string {
   if (typeof value !== "string") return "No visible message preview.";
   const normalized = redactBrowserText(value).replace(/\s+/gu, " ").trim();
-  return Array.from(normalized).slice(0, maxPreviewCharacters).join("") || "No visible message preview.";
+  return (
+    Array.from(normalized).slice(0, maxPreviewCharacters).join("") || "No visible message preview."
+  );
 }
 
-function summaryFromRow(row: ConversationRow, key: Buffer): ConversationSummary {
-  if (typeof row.raw_id !== "string" || !row.raw_id || !Number.isFinite(row.activity) || row.activity <= 0) {
+function summaryFromRow(
+  row: ConversationRow,
+  identityCodec: ConversationIdentityCodec,
+): ConversationSummary {
+  if (
+    typeof row.raw_id !== "string" ||
+    !row.raw_id ||
+    !Number.isFinite(row.activity) ||
+    row.activity <= 0
+  ) {
     throw new SourceSecurityError("source_malformed");
   }
   return {
-    id: encodeIdentity("conversation", row.raw_id, row.activity, key),
+    id: identityCodec.encodeTask(row.raw_id, row.activity),
     title: safeIdentifier(row.title, 500) ?? "Untitled conversation",
     preview: safePreview(row.preview),
     source: safeIdentifier(row.source, 100) ?? "Unknown",
@@ -298,20 +374,22 @@ export async function readConversationPage(
   if (!Number.isInteger(limit) || limit < 1 || limit > maxPageSize) {
     throw new SourceSecurityError("invalid_path");
   }
+  const identityCodec = options.identityCodec ?? legacyIdentityCodec(context, manifest);
+  const cursorIdentity = cursor ? identityCodec.decodeCursor(cursor) : null;
   const databasePath = path.join(context.home, ...parseRelativePath(manifest.databaseRelativePath));
-  const key = identityKey(context, manifest);
-  return (options.databaseReader ?? withReadOnlyDatabase)(databasePath, (database) => {
-    const schema = inspectSchema(database, manifest);
-    let cursorClause = "";
-    let parameters: [number, number, string, number] | [number];
-    if (cursor) {
-      const identity = decodeIdentity(cursor, "cursor", key);
-      cursorClause = "WHERE (activity < ? OR (activity = ? AND raw_id < ?))";
-      parameters = [identity.time, identity.time, identity.rawId, limit + 1];
-    } else {
-      parameters = [limit + 1];
-    }
-    const sql = `
+  return (options.databaseReader ?? withReadOnlyDatabase)(
+    databasePath,
+    (database) => {
+      const schema = inspectSchema(database, manifest);
+      let cursorClause = "";
+      let parameters: [number, number, string, number] | [number];
+      if (cursorIdentity) {
+        cursorClause = "WHERE (activity < ? OR (activity = ? AND raw_id < ?))";
+        parameters = [cursorIdentity.time, cursorIdentity.time, cursorIdentity.rawId, limit + 1];
+      } else {
+        parameters = [limit + 1];
+      }
+      const sql = `
       WITH eligible_conversations AS (
         SELECT ${conversationSelect(schema)}
         FROM ${quoteIdentifier(manifest.sessionTable)} s
@@ -322,16 +400,18 @@ export async function readConversationPage(
       ORDER BY activity DESC, raw_id DESC
       LIMIT ?
     `;
-    const rows = database.prepare<typeof parameters, ConversationRow>(sql).all(...parameters);
-    const hasMore = rows.length > limit;
-    const pageRows = rows.slice(0, limit);
-    const last = pageRows.at(-1);
-    return {
-      items: pageRows.map((row) => summaryFromRow(row, key)),
-      nextCursor: hasMore && last ? encodeIdentity("cursor", last.raw_id, last.activity, key) : null,
-      observedAt: now.toISOString(),
-    };
-  }, { protectedSourceRoots: [context.home] });
+      const rows = database.prepare<typeof parameters, ConversationRow>(sql).all(...parameters);
+      const hasMore = rows.length > limit;
+      const pageRows = rows.slice(0, limit);
+      const last = pageRows.at(-1);
+      return {
+        items: pageRows.map((row) => summaryFromRow(row, identityCodec)),
+        nextCursor: hasMore && last ? identityCodec.encodeCursor(last.raw_id, last.activity) : null,
+        observedAt: now.toISOString(),
+      };
+    },
+    { protectedSourceRoots: [context.home] },
+  );
 }
 
 function messageRows(
@@ -340,7 +420,9 @@ function messageRows(
   rawSessionId: string,
 ): MessageRow[] {
   const message = schema.messages;
-  return database.prepare<[string, number], MessageRow>(`
+  return database
+    .prepare<[string, number], MessageRow>(
+      `
     SELECT
       m.${message.id} AS raw_id,
       LOWER(m.${message.role}) AS role,
@@ -356,7 +438,9 @@ function messageRows(
       AND LOWER(m.${message.role}) IN ('user', 'assistant', 'tool')
     ORDER BY m.${message.timestamp} ASC, m.${message.id} ASC
     LIMIT ?
-  `).all(rawSessionId, maxTranscriptMessages + 1);
+  `,
+    )
+    .all(rawSessionId, maxTranscriptMessages + 1);
 }
 
 function safeMessages(
@@ -368,11 +452,15 @@ function safeMessages(
   let remaining = maxTranscriptCharacters;
   let truncated = rows.length > maxTranscriptMessages;
   for (const row of rows.slice(0, maxTranscriptMessages)) {
-    const role = row.role === "user" || row.role === "assistant" || row.role === "tool" ? row.role : null;
+    const role =
+      row.role === "user" || row.role === "assistant" || row.role === "tool" ? row.role : null;
     if (!role) continue;
-    const rawContent = role === "tool"
-      ? `${safeIdentifier(row.tool_name, 100) ?? "Tool"} activity`
-      : typeof row.safe_content === "string" ? redactBrowserText(row.safe_content) : "";
+    const rawContent =
+      role === "tool"
+        ? `${safeIdentifier(row.tool_name, 100) ?? "Tool"} activity`
+        : typeof row.safe_content === "string"
+          ? redactBrowserText(row.safe_content)
+          : "";
     if (!rawContent.trim()) continue;
     const characters = Array.from(rawContent);
     const allowed = Math.min(remaining, maxMessageCharacters);
@@ -381,9 +469,13 @@ function safeMessages(
       break;
     }
     const content = characters.slice(0, allowed).join("");
-    if (characters.length > allowed || (row.message_characters ?? 0) > maxMessageCharacters) truncated = true;
+    if (characters.length > allowed || (row.message_characters ?? 0) > maxMessageCharacters)
+      truncated = true;
     messages.push({
-      id: `message-${createHash("sha256").update(`${rawSessionId}:${String(row.raw_id)}`).digest("hex").slice(0, 24)}`,
+      id: `message-${createHash("sha256")
+        .update(`${rawSessionId}:${String(row.raw_id)}`)
+        .digest("hex")
+        .slice(0, 24)}`,
       role,
       content,
       timestamp: safeTime(row.timestamp, fallbackTime),
@@ -399,13 +491,16 @@ export async function readConversationTranscript(
   requestedId: string,
   options: ConversationReadOptions = {},
 ): Promise<Conversation> {
-  const key = identityKey(context, manifest);
-  const identity = decodeIdentity(requestedId, "conversation", key);
+  const identityCodec = options.identityCodec ?? legacyIdentityCodec(context, manifest);
+  const rawId = identityCodec.decodeTask(requestedId);
   const databasePath = path.join(context.home, ...parseRelativePath(manifest.databaseRelativePath));
-  return (options.databaseReader ?? withReadOnlyDatabase)(databasePath, (database) => {
-    const schema = inspectSchema(database, manifest);
-    const rawId = identity.rawId;
-    const row = database.prepare<[string], ConversationRow>(`
+  return (options.databaseReader ?? withReadOnlyDatabase)(
+    databasePath,
+    (database) => {
+      const schema = inspectSchema(database, manifest);
+      const row = database
+        .prepare<[string], ConversationRow>(
+          `
       WITH eligible_conversations AS (
         SELECT ${conversationSelect(schema)}
         FROM ${quoteIdentifier(manifest.sessionTable)} s
@@ -414,14 +509,18 @@ export async function readConversationTranscript(
       SELECT * FROM eligible_conversations
       WHERE raw_id = ?
       LIMIT 1
-    `).get(rawId);
-    if (!row) throw new SourceSecurityError("missing_source");
-    const safe = safeMessages(messageRows(database, schema, rawId), rawId, row.activity);
-    return {
-      ...summaryFromRow(row, key),
-      id: requestedId,
-      messages: safe.messages,
-      ...(safe.truncated ? { truncated: true } : {}),
-    };
-  }, { protectedSourceRoots: [context.home] });
+    `,
+        )
+        .get(rawId);
+      if (!row) throw new SourceSecurityError("missing_source");
+      const safe = safeMessages(messageRows(database, schema, rawId), rawId, row.activity);
+      return {
+        ...summaryFromRow(row, identityCodec),
+        id: requestedId,
+        messages: safe.messages,
+        ...(safe.truncated ? { truncated: true } : {}),
+      };
+    },
+    { protectedSourceRoots: [context.home] },
+  );
 }

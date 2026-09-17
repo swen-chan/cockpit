@@ -43,9 +43,8 @@ function createReadOnlyStatement<BindParameters extends unknown[], Result>(
 
 function createReadOnlyDatabase(database: Database.Database): ReadOnlyDatabase {
   return Object.freeze({
-    prepare: <BindParameters extends unknown[] = unknown[], Result = unknown>(source: string) => (
-      createReadOnlyStatement(database.prepare<BindParameters, Result>(source))
-    ),
+    prepare: <BindParameters extends unknown[] = unknown[], Result = unknown>(source: string) =>
+      createReadOnlyStatement(database.prepare<BindParameters, Result>(source)),
   });
 }
 
@@ -67,12 +66,14 @@ async function resolveReadOnlySource(
   filename: string,
   protectedSourceRoots: readonly string[],
 ): Promise<string> {
-  if (typeof filename !== "string"
-    || filename.length === 0
-    || !Array.isArray(protectedSourceRoots)
-    || protectedSourceRoots.length < 1
-    || protectedSourceRoots.length > 8
-    || protectedSourceRoots.some((root) => typeof root !== "string" || root.length === 0)) {
+  if (
+    typeof filename !== "string" ||
+    filename.length === 0 ||
+    !Array.isArray(protectedSourceRoots) ||
+    protectedSourceRoots.length < 1 ||
+    protectedSourceRoots.length > 8 ||
+    protectedSourceRoots.some((root) => typeof root !== "string" || root.length === 0)
+  ) {
     throw new SourceSecurityError("source_malformed");
   }
 

@@ -27,13 +27,13 @@ endorsed by [Nous Research](https://nousresearch.com/) or the
 
 ## What you can inspect
 
-| Surface | What it answers |
-| --- | --- |
-| **Overview** | What is happening across the resolved local sources? |
-| **System** | Which profile, context, skills, tools, and source documents are active? |
-| **Conversations** | What happened in eligible interactive sessions? |
-| **Files** | Which approved workspace files are visible, and what do they contain? |
-| **Jobs** | What is scheduled, what ran recently, and what state is each job in? |
+| Surface           | What it answers                                                         |
+| ----------------- | ----------------------------------------------------------------------- |
+| **Overview**      | What is happening across the resolved local sources?                    |
+| **System**        | Which profile, context, skills, tools, and source documents are active? |
+| **Conversations** | What happened in eligible interactive sessions?                         |
+| **Files**         | Which approved workspace files are visible, and what do they contain?   |
+| **Jobs**          | What is scheduled, what ran recently, and what state is each job in?    |
 
 Every surface is intentionally bounded and read-only. Source failures stay
 local to the affected section instead of taking down the entire interface.
@@ -145,14 +145,18 @@ pnpm start
 ## Development and verification
 
 ```bash
+pnpm format
 pnpm verify
 pnpm exec playwright install chromium  # first browser-test setup only
 pnpm test:browser
 ```
 
-`pnpm verify` runs type checking, lint, unit/integration tests, and the
-production build. The browser suite runs Chromium flows against a temporary
-synthetic Hermes environment; it refuses to reuse a real server on port 3000.
+`pnpm format` applies the repository's pinned Prettier rules. `pnpm verify`
+checks formatting, types, ESLint with zero warnings, unit/integration tests, and
+the production build. Installing dependencies also configures a pre-commit hook
+that runs ESLint and Prettier only on staged files. The browser suite runs
+Chromium flows against temporary synthetic Agent environments; it refuses to
+reuse a real server on port 3000.
 
 For a focused issue or pull request, keep changes inside the current local,
 read-only, single-user boundary, run both verification commands, and never

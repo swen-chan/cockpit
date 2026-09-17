@@ -1,35 +1,18 @@
 import "server-only";
 
-export type SafeErrorCode =
-  | "invalid_path"
-  | "path_outside_root"
-  | "excluded_path"
-  | "missing_source"
-  | "invalid_profile"
-  | "source_busy"
-  | "source_too_large"
-  | "source_malformed"
-  | "unsupported_source_version"
-  | "source_unavailable";
+import {
+  SAFE_ERROR_MESSAGES,
+  type AgentPanelId,
+  type ScopedSafeErrorCode,
+} from "@/contracts/agents";
 
-const publicMessages: Record<SafeErrorCode, string> = {
-  invalid_path: "The requested relative path is invalid.",
-  path_outside_root: "The requested path is outside the approved root.",
-  excluded_path: "The requested path is excluded by Cockpit policy.",
-  missing_source: "The requested local source is unavailable.",
-  invalid_profile: "The selected Hermes profile is invalid or unavailable.",
-  source_busy: "The local source is temporarily busy.",
-  source_too_large: "The local source is too large to inspect safely.",
-  source_malformed: "The local source could not be safely interpreted.",
-  unsupported_source_version: "The selected source preset is not supported.",
-  source_unavailable: "The local source could not be read.",
-};
+export type SafeErrorCode = ScopedSafeErrorCode;
 
 export class SourceSecurityError extends Error {
   readonly code: SafeErrorCode;
 
   constructor(code: SafeErrorCode) {
-    super(publicMessages[code]);
+    super(SAFE_ERROR_MESSAGES[code]);
     this.name = "SourceSecurityError";
     this.code = code;
   }
@@ -59,14 +42,23 @@ export function classifySourceError(error: unknown): SafeErrorCode {
   return "source_unavailable";
 }
 
-export function toSafeDiagnostic(error: unknown, sourceId: string, now = new Date()): SafeDiagnostic {
+export function toSafeDiagnostic(
+  error: unknown,
+  sourceId: string,
+  now = new Date(),
+): SafeDiagnostic {
   const code = classifySourceError(error);
-  return { sourceId, code, message: publicMessages[code], observedAt: now.toISOString() };
+  return { sourceId, code, message: SAFE_ERROR_MESSAGES[code], observedAt: now.toISOString() };
 }
 
-export function logSafeDiagnostic(diagnostic: SafeDiagnostic): void {
+export function logSafeDiagnostic(
+  diagnostic: Pick<SafeDiagnostic, "sourceId" | "code"> & {
+    readonly panelId?: AgentPanelId | undefined;
+  },
+): void {
   console.error("[cockpit] source request failed", {
     sourceId: diagnostic.sourceId,
     code: diagnostic.code,
+    ...(diagnostic.panelId ? { panelId: diagnostic.panelId } : {}),
   });
 }

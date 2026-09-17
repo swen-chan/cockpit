@@ -1,0 +1,26 @@
+import "server-only";
+
+export const CODEX_LIMITS = Object.freeze({
+  version: "0.145.0",
+  probeMs: 5000,
+  probeBytes: 4096,
+  helperMs: 5000,
+  helperBytes: 4096,
+  databaseBytes: 512 * 1024 * 1024,
+  shmBytes: 64 * 1024 * 1024,
+  rolloutBytes: 32 * 1024 * 1024,
+  initializeMs: 5000,
+  listMs: 3000,
+  readMs: 10000,
+  listLifetimeMs: 10000,
+  readLifetimeMs: 15000,
+  lineBytes: 16 * 1024 * 1024,
+  stdoutBytes: 17 * 1024 * 1024,
+  stderrBytes: 64 * 1024,
+  messages: 16,
+  notifications: 4,
+  stdinGraceMs: 250,
+  termGraceMs: 500,
+  rssKiB: 384 * 1024,
+  sampleMs: 250,
+});

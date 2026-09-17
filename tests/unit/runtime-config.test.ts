@@ -24,6 +24,8 @@ describe("Cockpit runtime configuration", () => {
   });
 
   it("fails closed when no workspace root is configured", () => {
-    expect(() => resolveCockpitRuntimeConfig({})).toThrowError(expect.objectContaining({ code: "missing_source" }));
+    expect(() => resolveCockpitRuntimeConfig({})).toThrowError(
+      expect.objectContaining({ code: "missing_source" }),
+    );
   });
 });

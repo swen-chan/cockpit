@@ -63,11 +63,12 @@ export function unavailableSystemPrompt(
     title: "System Prompt",
     category: "Prompt snapshot",
     summary: "The prompt snapshot used by the latest eligible conversation.",
-    content: code === "unsupported_source_version"
-      ? "The selected Cockpit source preset is not supported."
-      : state === "unavailable"
-        ? "No eligible System Prompt snapshot is available for the resolved profile."
-        : "Cockpit could not safely read the latest System Prompt snapshot.",
+    content:
+      code === "unsupported_source_version"
+        ? "The selected Cockpit source preset is not supported."
+        : state === "unavailable"
+          ? "No eligible System Prompt snapshot is available for the resolved profile."
+          : "Cockpit could not safely read the latest System Prompt snapshot.",
     stamp: {
       id: "system-prompt",
       label: "Conversation source",
@@ -83,9 +84,14 @@ export function unavailableSystemPrompt(
   };
 }
 
-function readLatestPrompt(database: ReadOnlyDatabase, manifest: ConversationManifest): PromptRow | undefined {
+function readLatestPrompt(
+  database: ReadOnlyDatabase,
+  manifest: ConversationManifest,
+): PromptRow | undefined {
   const sessionTable = quoteIdentifier(manifest.sessionTable);
-  const sessionColumnRows = database.prepare<[], { name: string }>(`PRAGMA table_info(${sessionTable})`).all();
+  const sessionColumnRows = database
+    .prepare<[], { name: string }>(`PRAGMA table_info(${sessionTable})`)
+    .all();
   const columns = new Set(sessionColumnRows.map((row) => row.name));
   const mapped = manifest.sessionColumns;
   for (const required of [mapped.id, mapped.source, mapped.startedAt]) {
@@ -107,8 +113,13 @@ function readLatestPrompt(database: ReadOnlyDatabase, manifest: ConversationMani
     throw new SourceSecurityError("source_malformed");
   }
 
-  const activityColumns = [lastActivityAt, endedAt, startedAt].filter((value): value is string => value !== null);
-  const activity = activityColumns.length === 1 ? `s.${activityColumns[0]}` : `COALESCE(${activityColumns.map((name) => `s.${name}`).join(", ")})`;
+  const activityColumns = [lastActivityAt, endedAt, startedAt].filter(
+    (value): value is string => value !== null,
+  );
+  const activity =
+    activityColumns.length === 1
+      ? `s.${activityColumns[0]}`
+      : `COALESCE(${activityColumns.map((name) => `s.${name}`).join(", ")})`;
 
   let promptExpression = embeddedPrompt ? `s.${embeddedPrompt}` : "NULL";
   let hashMatchedExpression = "0";
@@ -116,18 +127,24 @@ function readLatestPrompt(database: ReadOnlyDatabase, manifest: ConversationMani
   const promptTableName = manifest.promptTable;
   const promptColumnMapping = manifest.promptColumns;
   if (promptTableName && promptColumnMapping && promptHash) {
-    const tableExists = database.prepare<[string], { present: number }>(
-      "SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
-    ).get(promptTableName);
+    const tableExists = database
+      .prepare<[string], { present: number }>(
+        "SELECT 1 AS present FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+      )
+      .get(promptTableName);
     if (tableExists) {
       const promptTable = quoteIdentifier(promptTableName);
-      const promptColumnRows = database.prepare<[], { name: string }>(`PRAGMA table_info(${promptTable})`).all();
+      const promptColumnRows = database
+        .prepare<[], { name: string }>(`PRAGMA table_info(${promptTable})`)
+        .all();
       const promptColumns = new Set(promptColumnRows.map((row) => row.name));
       const hashColumn = promptColumnMapping.hash;
       const bodyColumn = promptColumnMapping.prompt;
       if (promptColumns.has(hashColumn) && promptColumns.has(bodyColumn)) {
         const snapshotPrompt = `p.${quoteIdentifier(bodyColumn)}`;
-        promptExpression = embeddedPrompt ? `COALESCE(${snapshotPrompt}, s.${embeddedPrompt})` : snapshotPrompt;
+        promptExpression = embeddedPrompt
+          ? `COALESCE(${snapshotPrompt}, s.${embeddedPrompt})`
+          : snapshotPrompt;
         hashMatchedExpression = `CASE WHEN ${snapshotPrompt} IS NOT NULL THEN 1 ELSE 0 END`;
         promptJoin = `LEFT JOIN ${promptTable} p ON p.${quoteIdentifier(hashColumn)} = s.${promptHash}`;
       }
@@ -183,17 +200,20 @@ export async function readSystemPrompt(
     }
 
     const bounded = boundUtf8Text(redactBrowserText(row.prompt));
-    const promptBytes = Number.isSafeInteger(row.prompt_bytes) && (row.prompt_bytes ?? 0) >= 0
-      ? row.prompt_bytes ?? bounded.originalBytes
-      : bounded.originalBytes;
-    const promptHash = typeof row.prompt_hash === "string" && /^[A-Fa-f0-9]{8,128}$/u.test(row.prompt_hash)
-      ? `${row.prompt_hash.slice(0, 10)}…`
-      : "Unavailable";
-    const resolution = row.hash_matched === 1
-      ? "Hash-matched snapshot"
-      : row.embedded_fallback === 1
-        ? "Embedded compatibility fallback"
+    const promptBytes =
+      Number.isSafeInteger(row.prompt_bytes) && (row.prompt_bytes ?? 0) >= 0
+        ? (row.prompt_bytes ?? bounded.originalBytes)
+        : bounded.originalBytes;
+    const promptHash =
+      typeof row.prompt_hash === "string" && /^[A-Fa-f0-9]{8,128}$/u.test(row.prompt_hash)
+        ? `${row.prompt_hash.slice(0, 10)}…`
         : "Unavailable";
+    const resolution =
+      row.hash_matched === 1
+        ? "Hash-matched snapshot"
+        : row.embedded_fallback === 1
+          ? "Embedded compatibility fallback"
+          : "Unavailable";
 
     return {
       id: "prompt",
@@ -207,7 +227,9 @@ export async function readSystemPrompt(
         path: "<CONVERSATION_STORE> / <PROMPT_RECORDS>",
         observedAt: now.toISOString(),
         state: "ready",
-        ...(bounded.truncated || promptBytes > SOURCE_LIMITS.maxPreviewBytes ? { truncated: true } : {}),
+        ...(bounded.truncated || promptBytes > SOURCE_LIMITS.maxPreviewBytes
+          ? { truncated: true }
+          : {}),
       },
       metadata: [
         { label: "Used by", value: sessionTitle },

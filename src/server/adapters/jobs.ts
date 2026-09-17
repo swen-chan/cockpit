@@ -103,7 +103,8 @@ function safeState(record: Record<string, unknown>, manifest: JobsManifest): Her
   const fields = manifest.definitionFields;
   const rawState = record[fields.state];
   const state = typeof rawState === "string" ? rawState.trim().toLowerCase() : "";
-  if (record[fields.enabled] === false || state === "paused") return state === "completed" ? "completed" : "paused";
+  if (record[fields.enabled] === false || state === "paused")
+    return state === "completed" ? "completed" : "paused";
   if (state === "completed") return "completed";
   if (state === "running") return "running";
   return "enabled";
@@ -147,7 +148,11 @@ function safeNameList(...values: unknown[]): string[] {
   const result: string[] = [];
   const seen = new Set<string>();
   for (const value of values) {
-    const candidates = Array.isArray(value) ? value : value === null || value === undefined ? [] : [value];
+    const candidates = Array.isArray(value)
+      ? value
+      : value === null || value === undefined
+        ? []
+        : [value];
     for (const candidate of candidates.slice(0, 100)) {
       const name = safeJobString(candidate, 100);
       if (!name) continue;
@@ -180,8 +185,15 @@ function jobFromUnknown(value: unknown, context: HermesContext, manifest: JobsMa
     lastStatus: safeStatus(record[fields.lastStatus]),
     failureStreak: safeFailureStreak(record[fields.failureStreak]),
     delivery: safeDelivery(record[fields.deliver]),
-    profile: safeJobString(record[fields.profile], 100) ?? safeJobString(context.profile, 100) ?? "Unavailable",
-    toolsets: safeNameList(record[fields.skills], record[fields.skill], record[fields.enabledToolsets]),
+    profile:
+      safeJobString(record[fields.profile], 100) ??
+      safeJobString(context.profile, 100) ??
+      "Unavailable",
+    toolsets: safeNameList(
+      record[fields.skills],
+      record[fields.skill],
+      record[fields.enabledToolsets],
+    ),
     recordedAttempts: 0,
     executions: [],
   };
@@ -218,10 +230,15 @@ function quoteIdentifier(identifier: string): string {
   return `"${identifier.replaceAll('"', '""')}"`;
 }
 
-function inspectExecutionSchema(database: ReadOnlyDatabase, manifest: JobsManifest): ExecutionSchema {
+function inspectExecutionSchema(
+  database: ReadOnlyDatabase,
+  manifest: JobsManifest,
+): ExecutionSchema {
   const table = quoteIdentifier(manifest.executionTable);
   const columns = database.prepare<[], { name: unknown }>(`PRAGMA table_info(${table})`).all();
-  const names = new Set(columns.map((column) => column.name).filter((name): name is string => typeof name === "string"));
+  const names = new Set(
+    columns.map((column) => column.name).filter((name): name is string => typeof name === "string"),
+  );
   const mapped = manifest.executionColumns;
   for (const required of Object.values(mapped)) {
     if (!names.has(required)) throw new SourceSecurityError("source_malformed");
@@ -240,11 +257,15 @@ function inspectExecutionSchema(database: ReadOnlyDatabase, manifest: JobsManife
 function executionStatus(value: unknown): JobExecution["status"] {
   if (typeof value !== "string") return "unknown";
   switch (value.trim().toLowerCase()) {
-    case "completed": return "success";
-    case "failed": return "failed";
+    case "completed":
+      return "success";
+    case "failed":
+      return "failed";
     case "claimed":
-    case "running": return "running";
-    default: return "unknown";
+    case "running":
+      return "running";
+    default:
+      return "unknown";
   }
 }
 
@@ -275,10 +296,14 @@ export async function readRecentJobExecutions(
   );
   if (uniqueIds.length === 0) return grouped;
   const databasePath = path.join(context.home, manifest.executionsDatabaseRelativePath);
-  return withReadOnlyDatabase(databasePath, (database) => {
-    const schema = inspectExecutionSchema(database, manifest);
-    const placeholders = uniqueIds.map(() => "?").join(", ");
-    const rows = database.prepare<[...string[], number], ExecutionRow>(`
+  return withReadOnlyDatabase(
+    databasePath,
+    (database) => {
+      const schema = inspectExecutionSchema(database, manifest);
+      const placeholders = uniqueIds.map(() => "?").join(", ");
+      const rows = database
+        .prepare<[...string[], number], ExecutionRow>(
+          `
       WITH ranked AS (
         SELECT
           ${schema.id} AS safe_id,
@@ -296,19 +321,25 @@ export async function readRecentJobExecutions(
       FROM ranked
       WHERE safe_job_rank <= ?
       ORDER BY safe_claimed_at DESC, safe_id DESC
-    `).all(...uniqueIds, SOURCE_LIMITS.maxExecutionsPerJob);
-    for (const row of rows) {
-      const { execution, jobId } = executionFromRow(row);
-      const history = grouped.get(jobId);
-      if (!history) continue;
-      if (typeof row.safe_recorded_attempts !== "number"
-        || !Number.isSafeInteger(row.safe_recorded_attempts)
-        || row.safe_recorded_attempts < 0) {
-        throw new SourceSecurityError("source_malformed");
+    `,
+        )
+        .all(...uniqueIds, SOURCE_LIMITS.maxExecutionsPerJob);
+      for (const row of rows) {
+        const { execution, jobId } = executionFromRow(row);
+        const history = grouped.get(jobId);
+        if (!history) continue;
+        if (
+          typeof row.safe_recorded_attempts !== "number" ||
+          !Number.isSafeInteger(row.safe_recorded_attempts) ||
+          row.safe_recorded_attempts < 0
+        ) {
+          throw new SourceSecurityError("source_malformed");
+        }
+        history.recordedAttempts = Math.min(row.safe_recorded_attempts, 1_000_000);
+        history.executions.push(execution);
       }
-      history.recordedAttempts = Math.min(row.safe_recorded_attempts, 1_000_000);
-      history.executions.push(execution);
-    }
-    return grouped;
-  }, { protectedSourceRoots: [context.home] });
+      return grouped;
+    },
+    { protectedSourceRoots: [context.home] },
+  );
 }

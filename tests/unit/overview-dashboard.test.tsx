@@ -18,27 +18,31 @@ const snapshot: OverviewSnapshot = {
   conversations: {
     state: "ready",
     observedAt: "2026-09-09T03:29:58.000Z",
-    items: [{
-      id: "conversation-one",
-      title: "Live conversation",
-      preview: "A bounded summary from the real adapter.",
-      source: "telegram",
-      lastActivity: "2026-09-09T03:15:00.000Z",
-    }],
+    items: [
+      {
+        id: "conversation-one",
+        title: "Live conversation",
+        preview: "A bounded summary from the real adapter.",
+        source: "telegram",
+        lastActivity: "2026-09-09T03:15:00.000Z",
+      },
+    ],
     hasMore: true,
   },
   system: {
     state: "ready",
     observedAt: "2026-09-09T03:29:57.000Z",
-    items: [{
-      id: "agents",
-      title: "AGENTS.md",
-      label: "Approved workspace",
-      state: "ready",
-      observedAt: "2026-09-09T03:29:57.000Z",
-      freshnessLabel: "Modified",
-      freshnessAt: "2026-09-08T03:00:00.000Z",
-    }],
+    items: [
+      {
+        id: "agents",
+        title: "AGENTS.md",
+        label: "Approved workspace",
+        state: "ready",
+        observedAt: "2026-09-09T03:29:57.000Z",
+        freshnessLabel: "Modified",
+        freshnessAt: "2026-09-08T03:00:00.000Z",
+      },
+    ],
   },
   jobs: {
     state: "ready",
@@ -55,7 +59,14 @@ const snapshot: OverviewSnapshot = {
     observedAt: "2026-09-09T03:29:56.000Z",
     loadedCount: 12,
     truncated: true,
-    items: [{ name: "AGENTS.md", kind: "Markdown", size: "6.4 KB", modifiedAt: "2026-09-08T03:00:00.000Z" }],
+    items: [
+      {
+        name: "AGENTS.md",
+        kind: "Markdown",
+        size: "6.4 KB",
+        modifiedAt: "2026-09-08T03:00:00.000Z",
+      },
+    ],
   },
 };
 
@@ -72,16 +83,42 @@ describe("Overview dashboard", () => {
     expect(screen.getByText("8 total · 1 paused")).toBeInTheDocument();
     expect(screen.getByText("Approved workspace · 12 shown / partial")).toBeInTheDocument();
     expect(screen.getByText("Live conversation")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Conversations" })).toHaveAttribute("href", "/conversations");
+    expect(screen.getByRole("link", { name: "Conversations" })).toHaveAttribute(
+      "href",
+      "/conversations",
+    );
     expect(screen.getByRole("link", { name: "System" })).toHaveAttribute("href", "/system");
     expect(screen.getByRole("link", { name: "Jobs" })).toHaveAttribute("href", "/jobs");
     expect(screen.getByRole("link", { name: "Files" })).toHaveAttribute("href", "/files");
     expect(screen.queryByRole("link", { name: /Live conversation/i })).not.toBeInTheDocument();
-    expect(screen.getByText("Approved workspace · Modified 2026-09-08 11:00 CST")).toBeInTheDocument();
+    expect(
+      screen.getByText("Approved workspace · Modified 2026-09-08 11:00 CST"),
+    ).toBeInTheDocument();
     expect(screen.getByText("History partial")).toBeInTheDocument();
     expect(screen.getByText("Daily report")).toBeInTheDocument();
     expect(screen.getByText("Live local snapshot")).toBeInTheDocument();
     expect(screen.queryByText("Mock UI milestone")).not.toBeInTheDocument();
+  });
+
+  it("keeps Overview links inside a validated scoped panel", () => {
+    render(<OverviewDashboard snapshot={snapshot} basePath="/agents/hermes" />);
+
+    expect(screen.getByRole("link", { name: "Conversations" })).toHaveAttribute(
+      "href",
+      "/agents/hermes/conversations",
+    );
+    expect(screen.getByRole("link", { name: "System" })).toHaveAttribute(
+      "href",
+      "/agents/hermes/system",
+    );
+    expect(screen.getByRole("link", { name: "Jobs" })).toHaveAttribute(
+      "href",
+      "/agents/hermes/jobs",
+    );
+    expect(screen.getByRole("link", { name: "Files" })).toHaveAttribute(
+      "href",
+      "/agents/hermes/files",
+    );
   });
 
   it("keeps successful sections visible while failures and empty data stay scoped", () => {
@@ -114,7 +151,9 @@ describe("Overview dashboard", () => {
 
     render(<OverviewDashboard snapshot={partial} />);
 
-    const conversations = screen.getByRole("heading", { name: "Conversations" }).closest("section")!;
+    const conversations = screen
+      .getByRole("heading", { name: "Conversations" })
+      .closest("section")!;
     const system = screen.getByRole("heading", { name: "System" }).closest("section")!;
     const jobs = screen.getByRole("heading", { name: "Jobs" }).closest("section")!;
     const workspace = screen.getByRole("heading", { name: "Files" }).closest("section")!;
@@ -123,11 +162,19 @@ describe("Overview dashboard", () => {
     expect(within(system).getByText("AGENTS.md")).toBeInTheDocument();
     expect(within(system).getByText("error")).toBeInTheDocument();
     expect(within(jobs).getByText("Job definitions could not be safely read.")).toBeInTheDocument();
-    expect(within(workspace).getByText("The workspace root contains no visible entries.")).toBeInTheDocument();
-    expect(within(conversations).getByRole("link", { name: "Conversations" })).toHaveAttribute("href", "/conversations");
+    expect(
+      within(workspace).getByText("The workspace root contains no visible entries."),
+    ).toBeInTheDocument();
+    expect(within(conversations).getByRole("link", { name: "Conversations" })).toHaveAttribute(
+      "href",
+      "/conversations",
+    );
     expect(within(system).getByRole("link", { name: "System" })).toHaveAttribute("href", "/system");
     expect(within(jobs).getByRole("link", { name: "Jobs" })).toHaveAttribute("href", "/jobs");
-    expect(within(workspace).getByRole("link", { name: "Files" })).toHaveAttribute("href", "/files");
+    expect(within(workspace).getByRole("link", { name: "Files" })).toHaveAttribute(
+      "href",
+      "/files",
+    );
     expect(screen.getByText("default")).toBeInTheDocument();
     expect(screen.getByText("Config read failed")).toBeInTheDocument();
   });
