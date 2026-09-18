@@ -14,7 +14,8 @@ concurrency:
 
 jobs:
   quality:
-    name: Format, typecheck, lint, test, build, browser
+    # Keep this name stable: main branch protection requires this status check.
+    name: Typecheck, lint, test, build, browser
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
