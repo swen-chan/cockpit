@@ -46,30 +46,36 @@ describe("System page service", () => {
     mkdirSync(path.join(home, "memories"), { recursive: true });
     mkdirSync(path.join(home, "skills", "research", "fixture-skill"), { recursive: true });
     mkdirSync(workspace);
-    writeFileSync(path.join(home, "settings.yaml"), [
-      "model:",
-      "  default: fixture-model",
-      "  provider: fixture-provider",
-      "  api_key: sk-proj-never-serialize-this",
-      "platform_toolsets:",
-      "  cli: [file, web]",
-      "known_builtin_toolsets:",
-      "  cli: [file, web, vision]",
-      "known_plugin_toolsets:",
-      "  cli: []",
-      "skills:",
-      "  disabled: []",
-    ].join("\n"));
-    writeFileSync(path.join(home, "skills", "research", "fixture-skill", "SKILL.md"), [
-      "---",
-      "name: fixture-skill",
-      "description: A safe fixture skill.",
-      "metadata:",
-      "  hermes:",
-      "    category: research",
-      "---",
-      "# Fixture Skill",
-    ].join("\n"));
+    writeFileSync(
+      path.join(home, "settings.yaml"),
+      [
+        "model:",
+        "  default: fixture-model",
+        "  provider: fixture-provider",
+        "  api_key: sk-proj-never-serialize-this",
+        "platform_toolsets:",
+        "  cli: [file, web]",
+        "known_builtin_toolsets:",
+        "  cli: [file, web, vision]",
+        "known_plugin_toolsets:",
+        "  cli: []",
+        "skills:",
+        "  disabled: []",
+      ].join("\n"),
+    );
+    writeFileSync(
+      path.join(home, "skills", "research", "fixture-skill", "SKILL.md"),
+      [
+        "---",
+        "name: fixture-skill",
+        "description: A safe fixture skill.",
+        "metadata:",
+        "  hermes:",
+        "    category: research",
+        "---",
+        "# Fixture Skill",
+      ].join("\n"),
+    );
     writeFileSync(path.join(home, "memories", "MEMORY.md"), "# Memory\n\nFixture memory.");
     writeFileSync(path.join(home, "memories", "USER.md"), "# User\n\nFixture profile.");
     writeFileSync(path.join(workspace, "SOUL.md"), "# Soul\n\nFixture principles.");
@@ -127,7 +133,13 @@ describe("System page service", () => {
       now: new Date("2026-09-01T00:00:00Z"),
     });
 
-    expect(sources.map((source) => source.id)).toEqual(["prompt", "memory", "user", "soul", "agents"]);
+    expect(sources.map((source) => source.id)).toEqual([
+      "prompt",
+      "memory",
+      "user",
+      "soul",
+      "agents",
+    ]);
     expect(sources.every((source) => systemSourceSchema.safeParse(source).success)).toBe(true);
     expect(sources.every((source) => source.stamp.state === "ready")).toBe(true);
   });
@@ -162,10 +174,12 @@ describe("System page service", () => {
 
     const prompt = sources.find((source) => source.id === "prompt");
     expect(prompt?.stamp.state).toBe("error");
-    expect(prompt?.metadata).toContainEqual(expect.objectContaining({
-      label: "Diagnostic",
-      value: "unsupported_source_version",
-    }));
+    expect(prompt?.metadata).toContainEqual(
+      expect.objectContaining({
+        label: "Diagnostic",
+        value: "unsupported_source_version",
+      }),
+    );
     expect(prompt?.content).toContain("not supported");
     expect(sources.find((source) => source.id === "memory")?.stamp.state).toBe("ready");
   });

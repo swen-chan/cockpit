@@ -21,7 +21,7 @@ import {
   withExistingWorkspaceDirectory,
   withExistingWorkspaceFile,
 } from "@/server/security/path-policy";
-import { redactBrowserText } from "@/server/security/redaction";
+import { cleanBrowserText } from "@/server/security/safe-text";
 
 const supportedTextExtensions = new Set([
   ".c",
@@ -66,7 +66,9 @@ function isContained(root: string, candidate: string): boolean {
 
 function allowedTextFile(filename: string): boolean {
   const normalized = filename.normalize("NFKC").toLocaleLowerCase("en-US");
-  return supportedTextExtensions.has(path.extname(normalized)) || supportedTextNames.has(normalized);
+  return (
+    supportedTextExtensions.has(path.extname(normalized)) || supportedTextNames.has(normalized)
+  );
 }
 
 function detectedKind(filename: string, entryType: "directory" | "file"): string {
@@ -89,7 +91,11 @@ function safeResolvedEntry(
   directoryPath: string,
   dirent: Dirent,
 ): { entryType: "directory" | "file"; stats: Stats } | null {
-  if (dirent.name.length > 500 || invalidVisibleName.test(dirent.name) || hasExcludedSegment([dirent.name])) {
+  if (
+    dirent.name.length > 500 ||
+    invalidVisibleName.test(dirent.name) ||
+    hasExcludedSegment([dirent.name])
+  ) {
     return null;
   }
   const candidate = path.join(directoryPath, dirent.name);
@@ -119,11 +125,14 @@ function workspaceEntry(
   const relativePath = relativeDirectory ? `${relativeDirectory}/${dirent.name}` : dirent.name;
   if (relativePath.length > SOURCE_LIMITS.maxPathCharacters) return null;
   const kind = detectedKind(dirent.name, resolved.entryType);
-  const previewState = resolved.entryType === "file"
-    && allowedTextFile(dirent.name)
-    && resolved.stats.size <= SOURCE_LIMITS.maxPreviewBytes
-    ? "available"
-    : resolved.entryType === "file" ? "metadata-only" : "unavailable";
+  const previewState =
+    resolved.entryType === "file" &&
+    allowedTextFile(dirent.name) &&
+    resolved.stats.size <= SOURCE_LIMITS.maxPreviewBytes
+      ? "available"
+      : resolved.entryType === "file"
+        ? "metadata-only"
+        : "unavailable";
   return {
     id: relativePath,
     name: dirent.name,
@@ -144,7 +153,14 @@ function isBinary(buffer: Buffer): boolean {
   let controlCharacters = 0;
   for (const character of decoded) {
     const code = character.codePointAt(0) ?? 0;
-    if ((code < 32 && character !== "\n" && character !== "\r" && character !== "\t" && character !== "\f") || code === 127) {
+    if (
+      (code < 32 &&
+        character !== "\n" &&
+        character !== "\r" &&
+        character !== "\t" &&
+        character !== "\f") ||
+      code === 127
+    ) {
       controlCharacters += 1;
     }
   }
@@ -179,13 +195,19 @@ export async function readWorkspaceDirectory(
     candidates.sort((left, right) => left.name.localeCompare(right.name, "en", { numeric: true }));
     const safeEntries: WorkspaceFile[] = [];
     for (const candidate of candidates) {
-      const entry = workspaceEntry(canonicalRoot, directory.absolutePath, directory.relativePath, candidate);
+      const entry = workspaceEntry(
+        canonicalRoot,
+        directory.absolutePath,
+        directory.relativePath,
+        candidate,
+      );
       if (entry) safeEntries.push(entry);
     }
     const truncated = !reachedEnd || safeEntries.length > SOURCE_LIMITS.maxDirectoryEntries;
-    const parentPath = directory.relativePath === ""
-      ? null
-      : directory.relativePath.split("/").slice(0, -1).join("/");
+    const parentPath =
+      directory.relativePath === ""
+        ? null
+        : directory.relativePath.split("/").slice(0, -1).join("/");
     return {
       path: directory.relativePath,
       parentPath,
@@ -196,7 +218,10 @@ export async function readWorkspaceDirectory(
   });
 }
 
-export async function readWorkspacePreview(root: string, relativePath: string): Promise<WorkspaceFile> {
+export async function readWorkspacePreview(
+  root: string,
+  relativePath: string,
+): Promise<WorkspaceFile> {
   return withExistingWorkspaceFile(root, relativePath, (file) => {
     const stats = fstatSync(file.descriptor);
     const name = path.posix.basename(file.relativePath);
@@ -223,8 +248,16 @@ export async function readWorkspacePreview(root: string, relativePath: string): 
     }
     const contentBuffer = buffer.subarray(0, offset);
     if (isBinary(contentBuffer)) return { ...base, previewState: "metadata-only" as const };
-    const redacted = redactBrowserText(contentBuffer.toString("utf8"));
-    const bounded = boundUtf8Text(redacted, SOURCE_LIMITS.maxPreviewBytes, SOURCE_LIMITS.maxPreviewCharacters);
+    const cleaned = cleanBrowserText(contentBuffer.toString("utf8"), {
+      literalPaths: [root],
+      trim: false,
+    });
+    if (cleaned.text === null) return { ...base, previewState: "metadata-only" as const };
+    const bounded = boundUtf8Text(
+      cleaned.text,
+      SOURCE_LIMITS.maxPreviewBytes,
+      SOURCE_LIMITS.maxPreviewCharacters,
+    );
     return {
       ...base,
       previewState: "available" as const,

@@ -99,23 +99,208 @@ describe("conversation adapter", () => {
   }
 
   function seed(database: Database.Database) {
-    const insertSession = database.prepare("INSERT INTO conversation_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    insertSession.run("same-z", "cli", "Newest Z", 100, null, 300, 3, 1, "model-safe", "default", "/Users/private/project", 0, 0, null);
-    insertSession.run("same-a", "telegram", "Newest A", 100, null, 300, 1, 0, "model-safe", "default", null, 0, 0, null);
+    const insertSession = database.prepare(
+      "INSERT INTO conversation_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    );
+    insertSession.run(
+      "same-z",
+      "cli",
+      "Newest Z",
+      100,
+      null,
+      300,
+      3,
+      1,
+      "model-safe",
+      "default",
+      "/Users/private/project",
+      0,
+      0,
+      null,
+    );
+    insertSession.run(
+      "same-a",
+      "telegram",
+      "Newest A",
+      100,
+      null,
+      300,
+      1,
+      0,
+      "model-safe",
+      "default",
+      null,
+      0,
+      0,
+      null,
+    );
     insertSession.run("older", "cli", null, 50, null, 200, 1, 0, null, null, null, 0, 0, null);
-    insertSession.run("cron-row", "cron", "Cron", 100, null, 500, 1, 0, null, null, null, 0, 0, null);
-    insertSession.run("hidden-row", "cli", "Hidden", 100, null, 450, 1, 0, null, null, null, 1, 0, null);
-    insertSession.run("archived-row", "cli", "Archived", 100, null, 400, 1, 0, null, null, null, 0, 1, null);
-    insertSession.run("empty-row", "cli", "Empty", 100, null, 600, 0, 0, null, null, null, 0, 0, null);
+    insertSession.run(
+      "cron-row",
+      "cron",
+      "Cron",
+      100,
+      null,
+      500,
+      1,
+      0,
+      null,
+      null,
+      null,
+      0,
+      0,
+      null,
+    );
+    insertSession.run(
+      "hidden-row",
+      "cli",
+      "Hidden",
+      100,
+      null,
+      450,
+      1,
+      0,
+      null,
+      null,
+      null,
+      1,
+      0,
+      null,
+    );
+    insertSession.run(
+      "archived-row",
+      "cli",
+      "Archived",
+      100,
+      null,
+      400,
+      1,
+      0,
+      null,
+      null,
+      null,
+      0,
+      1,
+      null,
+    );
+    insertSession.run(
+      "empty-row",
+      "cli",
+      "Empty",
+      100,
+      null,
+      600,
+      0,
+      0,
+      null,
+      null,
+      null,
+      0,
+      0,
+      null,
+    );
 
-    const insertMessage = database.prepare("INSERT INTO message_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    insertMessage.run(1, "same-z", "user", "Read /Users/private/work and token=secret-value", null, 301, 1, 0, null, null, null, null);
-    insertMessage.run(2, "same-z", "tool", "raw tool output sk-proj-secret-value", "workspace", 302, 1, 0, null, null, null, "private");
-    insertMessage.run(3, "same-z", "assistant", "Visible answer", null, 303, 1, 0, null, "hidden reasoning", "raw api", null);
-    insertMessage.run(4, "same-z", "user", "Internal notice", null, 304, 1, 0, "internal_notification", null, null, null);
-    insertMessage.run(5, "same-z", "assistant", "Compacted answer", null, 305, 0, 1, null, null, null, null);
-    insertMessage.run(6, "same-a", "user", "Second conversation", null, 303, 1, 0, null, null, null, null);
-    insertMessage.run(7, "older", "user", "Older conversation", null, 201, 1, 0, null, null, null, null);
+    const insertMessage = database.prepare(
+      "INSERT INTO message_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    );
+    insertMessage.run(
+      1,
+      "same-z",
+      "user",
+      "Read /Users/private/work and token=secret-value",
+      null,
+      301,
+      1,
+      0,
+      null,
+      null,
+      null,
+      null,
+    );
+    insertMessage.run(
+      2,
+      "same-z",
+      "tool",
+      "raw tool output sk-proj-secret-value",
+      "workspace",
+      302,
+      1,
+      0,
+      null,
+      null,
+      null,
+      "private",
+    );
+    insertMessage.run(
+      3,
+      "same-z",
+      "assistant",
+      "Visible answer",
+      null,
+      303,
+      1,
+      0,
+      null,
+      "hidden reasoning",
+      "raw api",
+      null,
+    );
+    insertMessage.run(
+      4,
+      "same-z",
+      "user",
+      "Internal notice",
+      null,
+      304,
+      1,
+      0,
+      "internal_notification",
+      null,
+      null,
+      null,
+    );
+    insertMessage.run(
+      5,
+      "same-z",
+      "assistant",
+      "Compacted answer",
+      null,
+      305,
+      0,
+      1,
+      null,
+      null,
+      null,
+      null,
+    );
+    insertMessage.run(
+      6,
+      "same-a",
+      "user",
+      "Second conversation",
+      null,
+      303,
+      1,
+      0,
+      null,
+      null,
+      null,
+      null,
+    );
+    insertMessage.run(
+      7,
+      "older",
+      "user",
+      "Older conversation",
+      null,
+      201,
+      1,
+      0,
+      null,
+      null,
+      null,
+      null,
+    );
   }
 
   it("paginates eligible sessions stably with opaque cursors", async () => {
@@ -123,7 +308,13 @@ describe("conversation adapter", () => {
     seed(database);
     database.close();
 
-    const first = await readConversationPage(context, manifest.conversation, null, 2, new Date("2026-09-07T00:00:00Z"));
+    const first = await readConversationPage(
+      context,
+      manifest.conversation,
+      null,
+      2,
+      new Date("2026-09-07T00:00:00Z"),
+    );
     expect(conversationPageSchema.safeParse(first).success).toBe(true);
     expect(first.items.map((item) => item.title)).toEqual(["Newest Z", "Newest A"]);
     expect(first.nextCursor).toMatch(/^cursor-/u);
@@ -147,11 +338,20 @@ describe("conversation adapter", () => {
     seed(database);
     database.close();
     const page = await readConversationPage(context, manifest.conversation, null, 1);
-    const updated = new Database(path.join(context.home, manifest.conversation.databaseRelativePath));
-    updated.prepare("UPDATE conversation_records SET last_seen = ?, finished_time = ? WHERE record_id = ?")
+    const updated = new Database(
+      path.join(context.home, manifest.conversation.databaseRelativePath),
+    );
+    updated
+      .prepare(
+        "UPDATE conversation_records SET last_seen = ?, finished_time = ? WHERE record_id = ?",
+      )
       .run(null, 2_700_000, "same-z");
     updated.close();
-    const transcript = await readConversationTranscript(context, manifest.conversation, page.items[0]!.id);
+    const transcript = await readConversationTranscript(
+      context,
+      manifest.conversation,
+      page.items[0]!.id,
+    );
 
     expect(conversationSchema.safeParse(transcript).success).toBe(true);
     expect(transcript.messages.map(({ role, content }) => [role, content])).toEqual([
@@ -173,19 +373,46 @@ describe("conversation adapter", () => {
 
   it("bounds oversized messages and rejects forged identities", async () => {
     const { context, database } = fixture();
-    const insertSession = database.prepare("INSERT INTO conversation_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    const insertSession = database.prepare(
+      "INSERT INTO conversation_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    );
     insertSession.run("large", "cli", "Large", 100, null, 100, 1, 0, null, null, null, 0, 0, null);
-    database.prepare("INSERT INTO message_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    database
+      .prepare("INSERT INTO message_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
       .run(1, "large", "user", "x".repeat(30_000), null, 100, 1, 0, null, null, null, null);
     database.close();
 
     const page = await readConversationPage(context, manifest.conversation);
     expect(page.items[0]?.preview).toHaveLength(160);
-    const transcript = await readConversationTranscript(context, manifest.conversation, page.items[0]!.id);
+    const transcript = await readConversationTranscript(
+      context,
+      manifest.conversation,
+      page.items[0]!.id,
+    );
     expect(transcript.messages[0]?.content).toHaveLength(20_000);
     expect(transcript.truncated).toBe(true);
-    await expect(readConversationPage(context, manifest.conversation, "cursor-forged", 5)).rejects.toMatchObject({ code: "invalid_path" });
-    await expect(readConversationTranscript(context, manifest.conversation, "conversation-forged")).rejects.toMatchObject({ code: "invalid_path" });
+    await expect(
+      readConversationPage(context, manifest.conversation, "cursor-forged", 5),
+    ).rejects.toMatchObject({ code: "invalid_path" });
+    await expect(
+      readConversationTranscript(context, manifest.conversation, "conversation-forged"),
+    ).rejects.toMatchObject({ code: "invalid_path" });
+  });
+
+  it("rejects a malformed cursor before opening the conversation database", async () => {
+    const { context, database } = fixture();
+    database.close();
+    let databaseCalls = 0;
+
+    await expect(
+      readConversationPage(context, manifest.conversation, "cursor-forged", 5, new Date(), {
+        databaseReader: async () => {
+          databaseCalls += 1;
+          throw new Error("database reader must not run");
+        },
+      }),
+    ).rejects.toMatchObject({ code: "invalid_path" });
+    expect(databaseCalls).toBe(0);
   });
 
   it("surfaces a bounded busy diagnostic", async () => {
@@ -195,12 +422,16 @@ describe("conversation adapter", () => {
     let captured: unknown;
     try {
       await readConversationPage(context, manifest.conversation, null, 5, new Date(), {
-        databaseReader: async () => { throw busy; },
+        databaseReader: async () => {
+          throw busy;
+        },
       });
     } catch (error) {
       captured = error;
     }
-    expect(toSafeDiagnostic(captured, "conversation-store", new Date("2026-09-07T00:00:00Z"))).toEqual({
+    expect(
+      toSafeDiagnostic(captured, "conversation-store", new Date("2026-09-07T00:00:00Z")),
+    ).toEqual({
       sourceId: "conversation-store",
       code: "source_busy",
       message: "The local source is temporarily busy.",

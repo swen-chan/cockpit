@@ -1,9 +1,4 @@
-import type {
-  Conversation,
-  HermesJob,
-  SystemSource,
-  WorkspaceFile,
-} from "@/contracts/cockpit";
+import type { Conversation, HermesJob, SystemSource, WorkspaceFile } from "@/contracts/cockpit";
 
 export const mockSystemSources: SystemSource[] = [
   {

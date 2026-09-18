@@ -16,6 +16,7 @@ import type {
 } from "@/contracts/cockpit";
 import { sourceStateForCode } from "@/server/adapters/safe-values";
 import { toSafeDiagnostic } from "@/server/security/errors";
+import { assertSourceReadAllowed } from "@/server/security/prerender-guard";
 import { loadConversationPage } from "@/server/services/conversations";
 import { loadWorkspaceDirectory } from "@/server/services/files";
 import { loadJobsSnapshot } from "@/server/services/jobs";
@@ -55,10 +56,7 @@ function failureStatus(error: unknown, sourceId: string, now: Date): OverviewSec
   };
 }
 
-function profileSection(
-  result: PromiseSettledResult<ProfileSummary>,
-  now: Date,
-): OverviewProfile {
+function profileSection(result: PromiseSettledResult<ProfileSummary>, now: Date): OverviewProfile {
   if (result.status === "rejected") {
     return {
       ...failureStatus(result.reason, "profile", now),
@@ -111,18 +109,18 @@ function conversationsSection(
   };
 }
 
-function systemFreshness(source: SystemSource): Pick<OverviewSystemItem, "freshnessAt" | "freshnessLabel"> {
-  const metadata = source.metadata.find((item) => item.label === "Modified")
-    ?? source.metadata.find((item) => item.label === "Session time");
+function systemFreshness(
+  source: SystemSource,
+): Pick<OverviewSystemItem, "freshnessAt" | "freshnessLabel"> {
+  const metadata =
+    source.metadata.find((item) => item.label === "Modified") ??
+    source.metadata.find((item) => item.label === "Session time");
   return metadata
     ? { freshnessAt: metadata.value, freshnessLabel: metadata.label }
     : { freshnessAt: source.stamp.observedAt, freshnessLabel: "Observed" };
 }
 
-function systemSection(
-  result: PromiseSettledResult<SystemSource[]>,
-  now: Date,
-): OverviewSystem {
+function systemSection(result: PromiseSettledResult<SystemSource[]>, now: Date): OverviewSystem {
   if (result.status === "rejected") {
     return {
       ...failureStatus(result.reason, "system-context", now),
@@ -165,10 +163,7 @@ function validTimestamp(value: string | null): number | null {
   return Number.isFinite(timestamp) ? timestamp : null;
 }
 
-function jobsSection(
-  result: PromiseSettledResult<JobsSnapshot>,
-  now: Date,
-): OverviewJobs {
+function jobsSection(result: PromiseSettledResult<JobsSnapshot>, now: Date): OverviewJobs {
   if (result.status === "rejected") {
     return {
       ...failureStatus(result.reason, "jobs", now),
@@ -186,9 +181,10 @@ function jobsSection(
     return {
       state: snapshot.definitionsState,
       observedAt: snapshot.observedAt,
-      message: snapshot.definitionsState === "unavailable"
-        ? "Job definitions are unavailable for this profile."
-        : "Job definitions could not be safely read.",
+      message:
+        snapshot.definitionsState === "unavailable"
+          ? "Job definitions are unavailable for this profile."
+          : "Job definitions could not be safely read.",
       total: null,
       enabled: null,
       paused: null,
@@ -198,11 +194,19 @@ function jobsSection(
     };
   }
 
-  const activeJobs = snapshot.jobs.filter((job) => job.state === "enabled" || job.state === "running");
+  const activeJobs = snapshot.jobs.filter(
+    (job) => job.state === "enabled" || job.state === "running",
+  );
   const nextJob = activeJobs
     .map((job) => ({ job, timestamp: validTimestamp(job.nextRun) }))
-    .filter((candidate): candidate is { job: typeof candidate.job; timestamp: number } => candidate.timestamp !== null)
-    .sort((left, right) => left.timestamp - right.timestamp || left.job.name.localeCompare(right.job.name))[0]?.job;
+    .filter(
+      (candidate): candidate is { job: typeof candidate.job; timestamp: number } =>
+        candidate.timestamp !== null,
+    )
+    .sort(
+      (left, right) =>
+        left.timestamp - right.timestamp || left.job.name.localeCompare(right.job.name),
+    )[0]?.job;
 
   return {
     state: "ready",
@@ -254,7 +258,10 @@ function workspaceSection(
   };
 }
 
-export async function loadOverviewSnapshot(options: LoadOverviewOptions = {}): Promise<OverviewSnapshot> {
+export async function loadOverviewSnapshot(
+  options: LoadOverviewOptions = {},
+): Promise<OverviewSnapshot> {
+  assertSourceReadAllowed();
   const now = options.now ?? new Date();
   const readers: OverviewReaders = {
     profile: () => loadProfileForRequest(),

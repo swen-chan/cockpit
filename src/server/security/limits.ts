@@ -24,11 +24,16 @@ export function boundUtf8Text(
   maxCharacters: number = SOURCE_LIMITS.maxPreviewCharacters,
 ): BoundedText {
   const encoded = Buffer.from(value, "utf8");
-  const byteBounded = encoded.byteLength > maxBytes
-    ? encoded.subarray(0, maxBytes).toString("utf8").replace(/\uFFFD$/u, "")
-    : value;
+  const byteBounded =
+    encoded.byteLength > maxBytes
+      ? encoded
+          .subarray(0, maxBytes)
+          .toString("utf8")
+          .replace(/\uFFFD$/u, "")
+      : value;
   const characters = Array.from(byteBounded);
-  const text = characters.length > maxCharacters ? characters.slice(0, maxCharacters).join("") : byteBounded;
+  const text =
+    characters.length > maxCharacters ? characters.slice(0, maxCharacters).join("") : byteBounded;
 
   return {
     text,

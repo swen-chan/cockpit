@@ -64,8 +64,8 @@ export function JobsBrowser({
   }, [selectedId]);
 
   function selectJob(jobId: string) {
-    const revealDetail = typeof window.matchMedia === "function"
-      && window.matchMedia("(max-width: 1279px)").matches;
+    const revealDetail =
+      typeof window.matchMedia === "function" && window.matchMedia("(max-width: 1279px)").matches;
     shouldRevealDetail.current = revealDetail && jobId !== selectedId;
     if (revealDetail && jobId === selectedId) {
       detailRef.current?.focus({ preventScroll: true });
@@ -78,9 +78,12 @@ export function JobsBrowser({
     return (
       <SourceState
         kind={definitionsState === "ready" ? "empty" : definitionsState}
-        detail={failure ?? (definitionsState === "ready"
-          ? "No scheduled jobs were found for the resolved Hermes profile."
-          : "The scheduled job definitions could not be safely loaded.")}
+        detail={
+          failure ??
+          (definitionsState === "ready"
+            ? "No scheduled jobs were found for the resolved Hermes profile."
+            : "The scheduled job definitions could not be safely loaded.")
+        }
       />
     );
   }
@@ -90,10 +93,17 @@ export function JobsBrowser({
     { label: "Schedule", value: selected.schedule, mono: true },
     { label: "Delivery", value: selected.delivery },
     { label: "Profile", value: selected.profile, mono: true },
-    { label: "Skills / toolsets", value: selected.toolsets.join(", ") || "None declared", mono: true },
+    {
+      label: "Skills / toolsets",
+      value: selected.toolsets.join(", ") || "None declared",
+      mono: true,
+    },
     {
       label: "Recorded attempts",
-      value: executionsState === "ready" ? `${selected.recordedAttempts} in retained ledger` : "Unavailable",
+      value:
+        executionsState === "ready"
+          ? `${selected.recordedAttempts} in retained ledger`
+          : "Unavailable",
       mono: true,
     },
   ];
@@ -103,7 +113,16 @@ export function JobsBrowser({
       <section className="table-panel" aria-label="Scheduled jobs">
         <div className="table-scroll" role="region" aria-label="Scheduled jobs table" tabIndex={0}>
           <table>
-            <thead><tr><th>Name</th><th>Schedule</th><th>State</th><th>Last run</th><th>Next run</th><th>Result</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Schedule</th>
+                <th>State</th>
+                <th>Last run</th>
+                <th>Next run</th>
+                <th>Result</th>
+              </tr>
+            </thead>
             <tbody>
               {jobs.map((job) => (
                 <tr
@@ -112,15 +131,19 @@ export function JobsBrowser({
                   onClick={() => selectJob(job.id)}
                 >
                   <th scope="row">
-                    <button
-                      type="button"
-                      aria-pressed={job.id === selected.id}
-                    >
+                    <button type="button" aria-pressed={job.id === selected.id}>
                       {job.name}
                     </button>
                   </th>
-                  <td className="mono">{job.schedule}</td><td><StatusLabel status={stateStatus(job.state)} /></td>
-                  <td className="mono">{lastRunLabel(job)}</td><td className="mono">{nextRunLabel(job)}</td><td><StatusLabel status={job.lastStatus} label={resultLabel(job)} /></td>
+                  <td className="mono">{job.schedule}</td>
+                  <td>
+                    <StatusLabel status={stateStatus(job.state)} />
+                  </td>
+                  <td className="mono">{lastRunLabel(job)}</td>
+                  <td className="mono">{nextRunLabel(job)}</td>
+                  <td>
+                    <StatusLabel status={job.lastStatus} label={resultLabel(job)} />
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -140,7 +163,10 @@ export function JobsBrowser({
           {executionsState !== "ready" ? (
             <SourceState
               kind={executionsState}
-              detail={failure ?? "Recent execution history is unavailable; job definitions remain visible."}
+              detail={
+                failure ??
+                "Recent execution history is unavailable; job definitions remain visible."
+              }
             />
           ) : selected.executions.length ? (
             <ol>
@@ -148,13 +174,13 @@ export function JobsBrowser({
                 <li key={execution.id}>
                   <StatusLabel status={execution.status} />
                   <span className="mono">Started {formatShanghaiTime(execution.startedAt)}</span>
-                  <small className="mono">
-                    {finishedAtLabel(execution)}
-                  </small>
+                  <small className="mono">{finishedAtLabel(execution)}</small>
                 </li>
               ))}
             </ol>
-          ) : <p>No recent execution records.</p>}
+          ) : (
+            <p>No recent execution records.</p>
+          )}
         </section>
       </div>
     </div>

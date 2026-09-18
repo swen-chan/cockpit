@@ -98,9 +98,11 @@ describe("private source manifest", () => {
     expect(manifest.configRelativePath).toBe("example/config.yaml");
     expect(manifest.conversation.databaseRelativePath).toBe("example/conversations.sqlite");
     expect(manifest.jobs?.definitionsRelativePath).toBe("example/jobs.json");
-    expect(collectStringValues(manifest).every((value) => (
-      value.startsWith("example/") || value.startsWith("example_")
-    ))).toBe(true);
+    expect(
+      collectStringValues(manifest).every(
+        (value) => value.startsWith("example/") || value.startsWith("example_"),
+      ),
+    ).toBe(true);
   });
 
   const roots: string[] = [];
@@ -156,13 +158,17 @@ describe("private source manifest", () => {
     expect(() => resolveSourceManifest({ COCKPIT_SOURCE_PRESET: "unknown-layout" })).toThrowError(
       expect.objectContaining({ code: "unsupported_source_version" }),
     );
-    expect(() => resolveSourceManifest({
-      COCKPIT_SOURCE_MANIFEST: filename,
-      COCKPIT_SOURCE_PRESET: HERMES_SOURCE_PRESET_ID,
-    })).toThrowError(expect.objectContaining({ code: "source_malformed" }));
-    expect(() => resolveSourceManifest({
-      COCKPIT_SOURCE_MANIFEST: path.join(path.dirname(filename), "missing.json"),
-    })).toThrowError(expect.objectContaining({ code: "missing_source" }));
+    expect(() =>
+      resolveSourceManifest({
+        COCKPIT_SOURCE_MANIFEST: filename,
+        COCKPIT_SOURCE_PRESET: HERMES_SOURCE_PRESET_ID,
+      }),
+    ).toThrowError(expect.objectContaining({ code: "source_malformed" }));
+    expect(() =>
+      resolveSourceManifest({
+        COCKPIT_SOURCE_MANIFEST: path.join(path.dirname(filename), "missing.json"),
+      }),
+    ).toThrowError(expect.objectContaining({ code: "missing_source" }));
   });
 
   it.each([
@@ -171,18 +177,24 @@ describe("private source manifest", () => {
     ["SQL syntax in identifier", { conversation: { sessionTable: "records; DROP TABLE x" } }],
     ["missing hidden filter mapping", { conversation: { sessionColumns: { hidden: undefined } } }],
     ["prompt table without columns", { conversation: { promptColumns: undefined } }],
-    ["SQL syntax in message table", { conversation: { messages: { table: "messages; DROP TABLE x" } } }],
+    [
+      "SQL syntax in message table",
+      { conversation: { messages: { table: "messages; DROP TABLE x" } } },
+    ],
     ["job path traversal", { jobs: { definitionsRelativePath: "../private.json" } }],
     ["SQL syntax in execution table", { jobs: { executionTable: "attempts; DROP TABLE x" } }],
   ])("rejects %s", (_label, override) => {
     const base = validManifest();
     const candidate = structuredClone(base) as Record<string, unknown>;
-    if ("configRelativePath" in override) candidate.configRelativePath = override.configRelativePath;
+    if ("configRelativePath" in override)
+      candidate.configRelativePath = override.configRelativePath;
     if ("conversation" in override) {
       const conversation = candidate.conversation as Record<string, unknown>;
       const conversationOverride = override.conversation as Record<string, unknown>;
-      if ("sessionTable" in conversationOverride) conversation.sessionTable = conversationOverride.sessionTable;
-      if ("promptColumns" in conversationOverride) conversation.promptColumns = conversationOverride.promptColumns;
+      if ("sessionTable" in conversationOverride)
+        conversation.sessionTable = conversationOverride.sessionTable;
+      if ("promptColumns" in conversationOverride)
+        conversation.promptColumns = conversationOverride.promptColumns;
       if ("messages" in conversationOverride) {
         const messages = conversation.messages as Record<string, unknown>;
         Object.assign(messages, conversationOverride.messages);

@@ -7,7 +7,12 @@ import path from "node:path";
 import { parse } from "yaml";
 
 import type { SystemCollectionItem, SystemSource } from "@/contracts/cockpit";
-import { asRecord, formatByteCount, safeIdentifier, sourceStateForCode } from "@/server/adapters/safe-values";
+import {
+  asRecord,
+  formatByteCount,
+  safeIdentifier,
+  sourceStateForCode,
+} from "@/server/adapters/safe-values";
 import type { HermesContext } from "@/server/config/hermes-context";
 import { readNamedTextSource } from "@/server/files/bounded-text";
 import { hasExcludedSegment } from "@/server/security/credentials";
@@ -45,7 +50,9 @@ async function readCapabilityConfig(
   context: HermesContext,
   configRelativePath: string,
 ): Promise<ParsedCapabilityConfig> {
-  const source = await readNamedTextSource(context.home, configRelativePath, { rejectOversized: true });
+  const source = await readNamedTextSource(context.home, configRelativePath, {
+    rejectOversized: true,
+  });
   let parsed: unknown;
   try {
     parsed = parse(source.text, { maxAliasCount: 20, uniqueKeys: true });
@@ -78,9 +85,11 @@ function skillId(relativePath: string): string {
 function skillCategory(frontmatter: Record<string, unknown>, segments: string[]): string {
   const metadata = asRecord(frontmatter.metadata);
   const hermes = asRecord(metadata?.hermes);
-  return safeIdentifier(hermes?.category, 100)
-    ?? safeIdentifier(segments.length > 2 ? segments[0] : "uncategorized", 100)
-    ?? "uncategorized";
+  return (
+    safeIdentifier(hermes?.category, 100) ??
+    safeIdentifier(segments.length > 2 ? segments[0] : "uncategorized", 100) ??
+    "uncategorized"
+  );
 }
 
 async function discoverSkills(
@@ -89,13 +98,18 @@ async function discoverSkills(
   configAvailable: boolean,
 ): Promise<{ skills: DiscoveredSkill[]; truncated: boolean }> {
   const skillsRoot = canonicalizeDirectory(path.join(context.home, "skills"));
-  const pending: Array<{ absolutePath: string; segments: string[] }> = [{ absolutePath: skillsRoot, segments: [] }];
+  const pending: Array<{ absolutePath: string; segments: string[] }> = [
+    { absolutePath: skillsRoot, segments: [] },
+  ];
   const skills: DiscoveredSkill[] = [];
   let inspectedDirectories = 0;
   let truncated = false;
 
   while (pending.length > 0) {
-    if (inspectedDirectories >= maxInspectedDirectories || skills.length >= SOURCE_LIMITS.maxCollectionRecords) {
+    if (
+      inspectedDirectories >= maxInspectedDirectories ||
+      skills.length >= SOURCE_LIMITS.maxCollectionRecords
+    ) {
       truncated = true;
       break;
     }
@@ -171,9 +185,10 @@ function skillsFailure(state: "unavailable" | "error", code: string, now: Date):
     title: "Skills",
     category: "Capabilities",
     summary: "Installed skill manifests visible to Hermes.",
-    content: state === "unavailable"
-      ? "No installed skill source is available for the resolved profile."
-      : "Cockpit could not safely inspect installed skill manifests.",
+    content:
+      state === "unavailable"
+        ? "No installed skill source is available for the resolved profile."
+        : "Cockpit could not safely inspect installed skill manifests.",
     stamp: {
       id: "skills",
       label: "Hermes skills",
@@ -231,8 +246,16 @@ export async function readSkillsSource(
       },
       metadata: [
         { label: "Manifests", value: String(items.length), mono: true },
-        { label: "Enabled", value: configAvailable ? String(enabled) : "Status unavailable", mono: true },
-        { label: "Disabled", value: configAvailable ? String(disabledCount) : "Status unavailable", mono: true },
+        {
+          label: "Enabled",
+          value: configAvailable ? String(enabled) : "Status unavailable",
+          mono: true,
+        },
+        {
+          label: "Disabled",
+          value: configAvailable ? String(disabledCount) : "Status unavailable",
+          mono: true,
+        },
         { label: "Config", value: configDiagnostic, mono: true },
       ],
       collection: { kind: "skills", items },
@@ -249,9 +272,10 @@ function toolsFailure(state: "unavailable" | "error", code: string, now: Date): 
     title: "Tools",
     category: "Capabilities",
     summary: "Effective Hermes toolsets for the active CLI profile.",
-    content: state === "unavailable"
-      ? "No toolset configuration is available for the resolved profile."
-      : "Cockpit could not safely interpret the toolset configuration.",
+    content:
+      state === "unavailable"
+        ? "No toolset configuration is available for the resolved profile."
+        : "Cockpit could not safely interpret the toolset configuration.",
     stamp: {
       id: "tools",
       label: "Hermes configuration",
@@ -283,30 +307,34 @@ export async function readToolsSource(
     const plugins = safeStringSet(knownPlugin?.cli);
     const globallyDisabled = safeStringSet(agent?.disabled_toolsets);
     const hasExplicitCliConfig = Array.isArray(platformToolsets?.cli);
-    const names = [...new Set([...builtin, ...plugins, ...configured, ...globallyDisabled])]
-      .sort((left, right) => left.localeCompare(right, "en"));
+    const names = [...new Set([...builtin, ...plugins, ...configured, ...globallyDisabled])].sort(
+      (left, right) => left.localeCompare(right, "en"),
+    );
     const truncated = names.length > SOURCE_LIMITS.maxCollectionRecords;
-    const items: SystemCollectionItem[] = names.slice(0, SOURCE_LIMITS.maxCollectionRecords).map((name) => {
-      const status = globallyDisabled.has(name) || (hasExplicitCliConfig && !configured.has(name))
-        ? "disabled"
-        : configured.has(name)
-          ? "enabled"
-          : "available";
-      const description = globallyDisabled.has(name)
-        ? "Disabled by agent.disabled_toolsets."
-        : configured.has(name)
-          ? "Enabled by platform_toolsets.cli."
-          : hasExplicitCliConfig
-            ? "Known to Hermes but not enabled in platform_toolsets.cli."
-            : "Known to Hermes; CLI status inherits the platform default.";
-      return {
-        id: `toolset-${createHash("sha256").update(name).digest("hex").slice(0, 24)}`,
-        name,
-        description,
-        category: plugins.has(name) ? "Plugin" : builtin.has(name) ? "Built-in" : "Configured",
-        status,
-      };
-    });
+    const items: SystemCollectionItem[] = names
+      .slice(0, SOURCE_LIMITS.maxCollectionRecords)
+      .map((name) => {
+        const status =
+          globallyDisabled.has(name) || (hasExplicitCliConfig && !configured.has(name))
+            ? "disabled"
+            : configured.has(name)
+              ? "enabled"
+              : "available";
+        const description = globallyDisabled.has(name)
+          ? "Disabled by agent.disabled_toolsets."
+          : configured.has(name)
+            ? "Enabled by platform_toolsets.cli."
+            : hasExplicitCliConfig
+              ? "Known to Hermes but not enabled in platform_toolsets.cli."
+              : "Known to Hermes; CLI status inherits the platform default.";
+        return {
+          id: `toolset-${createHash("sha256").update(name).digest("hex").slice(0, 24)}`,
+          name,
+          description,
+          category: plugins.has(name) ? "Plugin" : builtin.has(name) ? "Built-in" : "Configured",
+          status,
+        };
+      });
     const enabled = items.filter((item) => item.status === "enabled").length;
     const disabled = items.filter((item) => item.status === "disabled").length;
     return {

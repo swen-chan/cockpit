@@ -73,7 +73,10 @@ describe("GET /api/overview", () => {
 
   it("rejects an invalid outgoing contract without forwarding unknown fields", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    mocks.loadOverviewSnapshot.mockResolvedValue({ ...partialSnapshot, rawConfig: { token: "private" } });
+    mocks.loadOverviewSnapshot.mockResolvedValue({
+      ...partialSnapshot,
+      rawConfig: { token: "private" },
+    });
 
     const response = await GET(new Request("http://127.0.0.1:3000/api/overview"));
     const body = await response.json();

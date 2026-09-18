@@ -67,7 +67,10 @@ describe("workspace files service", () => {
     expect(data.directory.items.map((entry) => entry.path)).toContain("notes.md");
     expect(data.initialFile?.path).toBe("notes.md");
     expect(data.directoryFailure).toBeUndefined();
-    expect(data.previewFailure).toMatchObject({ code: "missing_source", sourceId: "workspace" });
+    expect(data.previewFailure).toMatchObject({
+      code: "source_unavailable",
+      sourceId: "workspace",
+    });
   });
 
   it("loads nested directories and previews without accepting a browser root", async () => {
@@ -78,6 +81,29 @@ describe("workspace files service", () => {
     const preview = await loadWorkspacePreview("docs/nested.txt", options);
     expect(directory.items.map((entry) => entry.path)).toEqual(["docs/nested.txt"]);
     expect(preview.content).toBe("nested");
+  });
+
+  it("uses an explicit panel workspace without resolving unrelated Hermes environment", async () => {
+    const otherWorkspace = mkdtempSync(path.join(tmpdir(), "cockpit-files-other-"));
+    try {
+      writeFileSync(path.join(otherWorkspace, "other.txt"), "wrong root");
+      const options = {
+        environment: {
+          COCKPIT_HERMES_HOME: "/definitely-not-present/hermes-home",
+          COCKPIT_WORKSPACE_ROOT: otherWorkspace,
+        },
+        workspaceRoot: root,
+      };
+
+      const directory = await loadWorkspaceDirectory("", options);
+      expect(directory.items.map((entry) => entry.path)).toContain("notes.md");
+      expect(directory.items.map((entry) => entry.path)).not.toContain("other.txt");
+      await expect(loadWorkspacePreview("notes.md", options)).resolves.toMatchObject({
+        content: "# Fixture\n",
+      });
+    } finally {
+      rmSync(otherWorkspace, { recursive: true, force: true });
+    }
   });
 });
 
@@ -98,7 +124,9 @@ describe("workspace files GET routes", () => {
   it("returns strict no-store directory and preview responses", async () => {
     const directoryRoute = await import("@/app/api/files/route");
     const previewRoute = await import("@/app/api/files/preview/route");
-    const directoryResponse = await directoryRoute.GET(new Request("http://127.0.0.1/api/files?path="));
+    const directoryResponse = await directoryRoute.GET(
+      new Request("http://127.0.0.1/api/files?path="),
+    );
     const previewResponse = await previewRoute.GET(
       new Request("http://127.0.0.1/api/files/preview?path=route.txt"),
     );

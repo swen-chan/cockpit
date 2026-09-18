@@ -7,7 +7,10 @@ function colorChannels(color: string): number[] {
     const hexChannels = color.match(/[a-f\d]{2}/gi)?.map((channel) => Number.parseInt(channel, 16));
     if (hexChannels?.length === 3) return hexChannels;
   }
-  const rgbChannels = color.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+  const rgbChannels = color
+    .match(/[\d.]+/g)
+    ?.slice(0, 3)
+    .map(Number);
   if (rgbChannels?.length === 3) return rgbChannels;
   throw new Error(`Invalid color: ${color}`);
 }
@@ -27,10 +30,13 @@ function contrastRatio(foreground: string, background: string): number {
 }
 
 for (const width of [320, 390]) {
-  test(`keeps every primary navigation link visible without page overflow at ${width}px`, async ({ page }) => {
+  test(`keeps every primary navigation link visible without page overflow at ${width}px`, async ({
+    page,
+  }) => {
     await page.setViewportSize({ width, height: 800 });
     await page.goto("/");
     const navigation = page.getByRole("navigation", { name: "Primary navigation" });
+    await expect(page.locator(".product-mark")).toContainText("/ HERMES");
 
     for (const name of navigationNames) {
       const link = navigation.getByRole("link", { name, exact: true });
@@ -39,7 +45,9 @@ for (const width of [320, 390]) {
       expect(box, `${name} should have a rendered box`).not.toBeNull();
       expect(box!.x).toBeGreaterThanOrEqual(0);
       expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1);
-      expect(await link.locator("span").evaluate((label) => label.scrollWidth <= label.clientWidth)).toBe(true);
+      expect(
+        await link.locator("span").evaluate((label) => label.scrollWidth <= label.clientWidth),
+      ).toBe(true);
     }
 
     const rootWidths = await page.evaluate(() => ({
@@ -74,7 +82,9 @@ test("moves keyboard focus into System details only in the stacked layout", asyn
   await expect(previewTitle).not.toBeFocused();
 });
 
-test("keeps secondary and failure text above AA contrast on light and selected dark surfaces", async ({ page }) => {
+test("keeps secondary and failure text above AA contrast on light and selected dark surfaces", async ({
+  page,
+}) => {
   await page.goto("/system");
   const colors = await page.evaluate(() => {
     const styles = getComputedStyle(document.documentElement);
@@ -83,11 +93,13 @@ test("keeps secondary and failure text above AA contrast on light and selected d
     if (!selectedIndex || !selectedRow) throw new Error("Selected System row is unavailable");
 
     const probe = document.createElement("table");
-    probe.innerHTML = '<tbody><tr class="is-selected"><td><span class="status-label status-failed">FAILED</span></td></tr></tbody>';
+    probe.innerHTML =
+      '<tbody><tr class="is-selected"><td><span class="status-label status-failed">FAILED</span></td></tr></tbody>';
     document.body.append(probe);
     const selectedFailure = probe.querySelector<HTMLElement>(".status-failed");
     const selectedJobRow = probe.querySelector<HTMLElement>("tr");
-    if (!selectedFailure || !selectedJobRow) throw new Error("Selected failure probe is unavailable");
+    if (!selectedFailure || !selectedJobRow)
+      throw new Error("Selected failure probe is unavailable");
 
     const result = {
       failedText: getComputedStyle(selectedFailure).color,
@@ -103,5 +115,7 @@ test("keeps secondary and failure text above AA contrast on light and selected d
 
   expect(contrastRatio(colors.muted, colors.rail)).toBeGreaterThanOrEqual(4.5);
   expect(contrastRatio(colors.selectedText, colors.selectedBackground)).toBeGreaterThanOrEqual(4.5);
-  expect(contrastRatio(colors.failedText, colors.selectedJobBackground)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(colors.failedText, colors.selectedJobBackground)).toBeGreaterThanOrEqual(
+    4.5,
+  );
 });

@@ -28,7 +28,8 @@ export function profileConfigSystemSource(
     id: "providers",
     title: "Providers",
     category: "Model routing",
-    summary: "Safe profile, model, and provider identifiers from the resolved Hermes configuration.",
+    summary:
+      "Safe profile, model, and provider identifiers from the resolved Hermes configuration.",
     content,
     stamp: {
       id: "safe-config",

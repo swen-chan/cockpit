@@ -40,6 +40,31 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Apply this process especially before inventing custom infrastructure or
   retaining a safety/performance mechanism whose benefit has not been measured.
 
+## Code Quality Gate
+
+- ESLint owns correctness rules; Prettier owns deterministic formatting. Reuse
+  the checked-in configurations instead of introducing a competing formatter,
+  linter, or duplicate CI workflow.
+- Format every source, test, configuration, and documentation change with
+  `pnpm format`. After each edit cycle, run the focused checks that exercise the
+  changed behavior. Before handing work back or committing, run `pnpm verify`;
+  when rendering, routing, browser requests, or interactions change, also run
+  `pnpm test:browser`.
+- The Husky pre-commit hook runs lint-staged checks for staged files. It is a
+  fast local guard, not a substitute for the complete verification commands or
+  the remote GitHub Verify workflow.
+- Fix the root cause of a quality failure. Do not make a check pass by casually
+  adding `eslint-disable`, `@ts-ignore`, `prettier-ignore`, expanding an ignore
+  file, lowering warning/error thresholds, skipping tests, or using
+  `--no-verify`. A real false positive requires a documented, narrowly scoped
+  exception and explicit review.
+- Never auto-format the eight upstream artifacts listed in `.prettierignore`
+  under `tests/fixtures/codex-0.145.0/`; they preserve exact bytes with recorded
+  SHA-256 provenance. Cockpit-owned fixture metadata remains subject to normal
+  formatting checks.
+- Report the exact commands run, their results, and any checks that could not be
+  run. Do not describe an unexecuted or failing check as passing.
+
 ## Code Review Rules
 
 ### Read-only boundary
@@ -53,9 +78,23 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   wal-index. This exception does not authorize application writes, changes to a
   main database, changes to an existing non-empty WAL, or changes to any
   business record or other Hermes file.
+- Unreleased v0.2 Codex work may apply that same narrow SQLite-owned
+  coordination exception only to the fixed configured Codex
+  `state_5.sqlite`, while Cockpit's snapshot helper opens it with
+  `SQLITE_OPEN_READONLY`, `fileMustExist`, and `query_only`. The real main
+  database, an existing non-empty WAL, rollouts, configuration, authentication,
+  guidance, plugins, skills, and workspace content remain strictly read-only.
+  Codex App Server may receive and modify only Cockpit-owned disposable snapshot
+  files; this is not permission for application writes to the real Codex home.
 - Revoke that exception and require a new bit-for-bit read design if local
   permissions, backup tooling, or file watchers make coordination sidecars
   harmful, or before any remote or multi-user mode is accepted.
+- A credential-free temporary `HOME`, fixed environment allowlist, and scrubbed
+  snapshot reduce accidental discovery but are not an OS capability sandbox.
+  Unreleased v0.2 therefore trusts only the exact pinned Codex executable under
+  the existing loopback, single-user, non-elevated model. An untrusted binary,
+  remote service, elevated process, or multi-user deployment requires a new
+  threat model and containment design.
 
 ### Privacy boundary
 

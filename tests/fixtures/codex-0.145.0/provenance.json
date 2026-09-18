@@ -1,0 +1,48 @@
+{
+  "cliVersion": "codex-cli 0.145.0",
+  "generatedAt": "2026-09-15T11:53:13.395Z",
+  "generationCommand": "codex app-server generate-json-schema --out <owned-temp-schema-directory>",
+  "generationIsolation": "Standalone binary, shell:false, fresh canonical mode-0700 temporary HOME/CODEX_HOME/CODEX_SQLITE_HOME/TMPDIR, explicit environment allowlist, 5-second command timeout; no App Server session or turn.",
+  "documentationUrl": "https://learn.chatgpt.com/docs/app-server#message-schema",
+  "upstreamTag": "rust-v0.145.0",
+  "upstreamCopyright": "Copyright 2025 OpenAI",
+  "license": "Apache-2.0",
+  "licenseUrl": "https://raw.githubusercontent.com/openai/codex/rust-v0.145.0/LICENSE",
+  "noticeUrl": "https://raw.githubusercontent.com/openai/codex/rust-v0.145.0/NOTICE",
+  "noticeScope": "Exact upstream project-wide LICENSE and NOTICE are retained unchanged. NOTICE includes Ratatui-derived-code attribution; this does not assert that these generated JSON schemas contain Ratatui code. Cockpit's own MIT license is unchanged.",
+  "validationScope": "Six unchanged, self-contained Draft-07 parameter/response schemas for representative synthetic protocol contract tests. This is not browser DTO validation, real-source acceptance, or the Task 1 GO decision.",
+  "artifacts": {
+    "InitializeParams.json": {
+      "generatedPath": "v1/InitializeParams.json",
+      "sha256": "4f576f99e285beb28f71f48a72b887c1f517dada86fee348fe2af0a35511de23"
+    },
+    "InitializeResponse.json": {
+      "generatedPath": "v1/InitializeResponse.json",
+      "sha256": "86dcd236d0576a82c85b933586dc45731260eab1b6edb3447b03f790277322b1"
+    },
+    "ThreadListParams.json": {
+      "generatedPath": "v2/ThreadListParams.json",
+      "sha256": "ed58445a1033a1c57184e6ee389ab5904e42fbcada6febcb692172d293f30853"
+    },
+    "ThreadListResponse.json": {
+      "generatedPath": "v2/ThreadListResponse.json",
+      "sha256": "4c433e4b07461aff0bc1d1f8819beccc4e64b88b927dea376d39e378bffd1ebb"
+    },
+    "ThreadReadParams.json": {
+      "generatedPath": "v2/ThreadReadParams.json",
+      "sha256": "db97080f82facc3259dbb9404e9f0df81e360619f4cd73983a9d99d25f5089ee"
+    },
+    "ThreadReadResponse.json": {
+      "generatedPath": "v2/ThreadReadResponse.json",
+      "sha256": "61f0a4973d5bfc1f6a29ae7d5c1dc63726416230754af77f085e4c3d6990e9e1"
+    },
+    "LICENSE": {
+      "sourceUrl": "https://raw.githubusercontent.com/openai/codex/rust-v0.145.0/LICENSE",
+      "sha256": "d17f227e4df5da1600391338865ce0f3055211760a36688f816941d58232d8dc"
+    },
+    "NOTICE": {
+      "sourceUrl": "https://raw.githubusercontent.com/openai/codex/rust-v0.145.0/NOTICE",
+      "sha256": "9d71575ecfd9a843fc1677b0efb08053c6ba9fd686a0de1a6f5382fd3c220915"
+    }
+  }
+}

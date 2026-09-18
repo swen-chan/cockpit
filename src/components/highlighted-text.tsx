@@ -19,7 +19,11 @@ export function HighlightedText({ query, text }: { query: string; text: string }
 
   while (matchIndex !== -1) {
     parts.push(text.slice(cursor, matchIndex));
-    parts.push(<mark key={`${matchIndex}-${cleanQuery}`}>{text.slice(matchIndex, matchIndex + cleanQuery.length)}</mark>);
+    parts.push(
+      <mark key={`${matchIndex}-${cleanQuery}`}>
+        {text.slice(matchIndex, matchIndex + cleanQuery.length)}
+      </mark>,
+    );
     cursor = matchIndex + cleanQuery.length;
     matchIndex = lowerText.indexOf(lowerQuery, cursor);
   }

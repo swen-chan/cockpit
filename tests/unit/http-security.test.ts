@@ -29,7 +29,14 @@ describe("local HTTP security boundary", () => {
     for (const host of ["127.0.0.1", "127.0.0.1:3000", "127.0.0.1:65535"]) {
       expect(isApprovedLoopbackHost(host)).toBe(true);
     }
-    for (const host of [null, "localhost:3000", "127.0.0.1.evil.test", "127.0.0.1:0", "127.0.0.1:65536", "[::1]:3000"]) {
+    for (const host of [
+      null,
+      "localhost:3000",
+      "127.0.0.1.evil.test",
+      "127.0.0.1:0",
+      "127.0.0.1:65536",
+      "[::1]:3000",
+    ]) {
       expect(isApprovedLoopbackHost(host)).toBe(false);
     }
   });
@@ -60,19 +67,29 @@ describe("local HTTP security boundary", () => {
   });
 
   it("blocks browser cross-site no-cors subresources without blocking navigation or curl", () => {
-    expect(isUnexpectedCrossSiteRequest(new Headers({
-      "sec-fetch-mode": "no-cors",
-      "sec-fetch-site": "cross-site",
-    }))).toBe(true);
-    expect(isUnexpectedCrossSiteRequest(new Headers({
-      "sec-fetch-mode": "navigate",
-      "sec-fetch-site": "cross-site",
-    }))).toBe(false);
+    expect(
+      isUnexpectedCrossSiteRequest(
+        new Headers({
+          "sec-fetch-mode": "no-cors",
+          "sec-fetch-site": "cross-site",
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      isUnexpectedCrossSiteRequest(
+        new Headers({
+          "sec-fetch-mode": "navigate",
+          "sec-fetch-site": "cross-site",
+        }),
+      ),
+    ).toBe(false);
     expect(isUnexpectedCrossSiteRequest(new Headers())).toBe(false);
   });
 
   it("sets a same-origin content policy without enabling CORS or HTTPS upgrade", () => {
-    const headers = new Headers(securityResponseHeaders.map(({ key, value }) => [key, value]));
+    const headers = new Headers(
+      securityResponseHeaders.map(({ key, value }): [string, string] => [key, value]),
+    );
     const policy = headers.get("content-security-policy") ?? "";
     const directives = policy.split("; ");
 

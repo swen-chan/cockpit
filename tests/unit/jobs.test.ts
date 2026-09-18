@@ -112,7 +112,10 @@ describe("jobs adapters", () => {
   function writeJobs(home: string, jobs: unknown): void {
     writeFileSync(
       path.join(home, jobsManifest.definitionsRelativePath),
-      JSON.stringify({ [jobsManifest.rootJobsField]: jobs, fixture_updated_time: "2026-09-09T00:00:00Z" }),
+      JSON.stringify({
+        [jobsManifest.rootJobsField]: jobs,
+        fixture_updated_time: "2026-09-09T00:00:00Z",
+      }),
     );
   }
 
@@ -147,18 +150,20 @@ describe("jobs adapters", () => {
     writeJobs(home, [safeJob()]);
 
     const jobs = await readJobDefinitions(context, jobsManifest);
-    expect(jobs).toEqual([expect.objectContaining({
-      id: "job-one",
-      name: "Daily research",
-      schedule: "Every day at 09:30",
-      createdAt: "2026-08-01T00:15:00.000Z",
-      state: "enabled",
-      lastStatus: "success",
-      delivery: "Telegram",
-      profile: "default",
-      toolsets: ["research", "web"],
-      executions: [],
-    })]);
+    expect(jobs).toEqual([
+      expect.objectContaining({
+        id: "job-one",
+        name: "Daily research",
+        schedule: "Every day at 09:30",
+        createdAt: "2026-08-01T00:15:00.000Z",
+        state: "enabled",
+        lastStatus: "success",
+        delivery: "Telegram",
+        profile: "default",
+        toolsets: ["research", "web"],
+        executions: [],
+      }),
+    ]);
     const serialized = JSON.stringify(jobs);
     for (const forbidden of [
       "PRIVATE PROMPT",
@@ -169,7 +174,8 @@ describe("jobs adapters", () => {
       "-100123456789",
       "secret-value",
       "/private/job.py",
-    ]) expect(serialized).not.toContain(forbidden);
+    ])
+      expect(serialized).not.toContain(forbidden);
   });
 
   it("normalizes unusual schedules and paused or completed states", async () => {
@@ -182,13 +188,28 @@ describe("jobs adapters", () => {
         cadence_label: null,
         cadence_spec: { cron_expression: "*/17 * * * *" },
       }),
-      safeJob({ task_key: "completed", is_enabled: false, lifecycle_state: "completed", cadence_label: "once", upcoming_time: "2026-12-01T00:00:00Z" }),
-      safeJob({ task_key: "odd", cadence_label: "https://private.example.test/schedule", cadence_spec: null }),
+      safeJob({
+        task_key: "completed",
+        is_enabled: false,
+        lifecycle_state: "completed",
+        cadence_label: "once",
+        upcoming_time: "2026-12-01T00:00:00Z",
+      }),
+      safeJob({
+        task_key: "odd",
+        cadence_label: "https://private.example.test/schedule",
+        cadence_spec: null,
+      }),
       safeJob({ task_key: "unrecognized-result", result_state: "timed_out" }),
     ]);
 
     const jobs = await readJobDefinitions(context, jobsManifest);
-    expect(jobs[0]).toMatchObject({ id: "paused", state: "paused", schedule: "*/17 * * * *", nextRun: null });
+    expect(jobs[0]).toMatchObject({
+      id: "paused",
+      state: "paused",
+      schedule: "*/17 * * * *",
+      nextRun: null,
+    });
     expect(jobs[1]).toMatchObject({ id: "completed", state: "completed", nextRun: null });
     expect(jobs[2]).toMatchObject({ id: "odd", schedule: "https://private.example.test/schedule" });
     expect(jobs[3]).toMatchObject({ id: "unrecognized-result", lastStatus: "unknown" });
@@ -196,28 +217,30 @@ describe("jobs adapters", () => {
 
   it("allows trusted allowlisted references while rejecting credentials", async () => {
     const { context, home } = fixture();
-    writeJobs(home, [safeJob({
-      display_name: "/opt/private/job.py",
-      cadence_label: "internal.example.test:8443/schedule",
-      profile_alias: "~/profiles/research.yaml",
-      capability_list: [
-        "research",
-        "~/private/skill.md",
-        "private.example.test/tool",
-        "token=secret-value",
-        "postgres://alice:s3cr3t@db.internal/jobs",
-      ],
-      toolset_list: [
-        "web",
-        "C:\\Users\\private\\tool.exe",
-        "localhost:9000/admin",
-        "[fd00::1]:8443/private",
-        "https://internal/callback?access_token=supersecret123",
-        "https://internal/callback#access_token=fragmentsecret123",
-        "private.example.test/callback?access_token=schemelesssecret123",
-        "//private.example.test/callback?access_token=relativesecret123",
-      ],
-    })]);
+    writeJobs(home, [
+      safeJob({
+        display_name: "/opt/private/job.py",
+        cadence_label: "internal.example.test:8443/schedule",
+        profile_alias: "~/profiles/research.yaml",
+        capability_list: [
+          "research",
+          "~/private/skill.md",
+          "private.example.test/tool",
+          "token=secret-value",
+          "postgres://alice:s3cr3t@db.internal/jobs",
+        ],
+        toolset_list: [
+          "web",
+          "C:\\Users\\private\\tool.exe",
+          "localhost:9000/admin",
+          "[fd00::1]:8443/private",
+          "https://internal/callback?access_token=supersecret123",
+          "https://internal/callback#access_token=fragmentsecret123",
+          "private.example.test/callback?access_token=schemelesssecret123",
+          "//private.example.test/callback?access_token=relativesecret123",
+        ],
+      }),
+    ]);
 
     const jobs = await readJobDefinitions(context, jobsManifest);
     expect(jobs[0]).toMatchObject({
@@ -246,53 +269,79 @@ describe("jobs adapters", () => {
   it("rejects ambiguous definition identifiers", async () => {
     const duplicateDefinitions = fixture();
     writeJobs(duplicateDefinitions.home, [safeJob(), safeJob({ display_name: "Duplicate" })]);
-    await expect(readJobDefinitions(duplicateDefinitions.context, jobsManifest))
-      .rejects.toMatchObject({ code: "source_malformed" });
+    await expect(
+      readJobDefinitions(duplicateDefinitions.context, jobsManifest),
+    ).rejects.toMatchObject({ code: "source_malformed" });
 
     const overlongDefinition = fixture();
     writeJobs(overlongDefinition.home, [safeJob({ task_key: "x".repeat(201) })]);
-    await expect(readJobDefinitions(overlongDefinition.context, jobsManifest))
-      .rejects.toMatchObject({ code: "source_malformed" });
+    await expect(
+      readJobDefinitions(overlongDefinition.context, jobsManifest),
+    ).rejects.toMatchObject({ code: "source_malformed" });
   });
 
   it("uses the response schema's UTF-16 string limits", async () => {
     const { context, home } = fixture();
-    writeJobs(home, [safeJob({
-      display_name: "😀".repeat(101),
-      capability_list: ["😀".repeat(51)],
-      toolset_list: [],
-    })]);
+    writeJobs(home, [
+      safeJob({
+        display_name: "😀".repeat(101),
+        capability_list: ["😀".repeat(51)],
+        toolset_list: [],
+      }),
+    ]);
 
     const jobs = await readJobDefinitions(context, jobsManifest);
     expect(jobs[0]).toMatchObject({
       name: "😀".repeat(100),
       toolsets: ["😀".repeat(50)],
     });
-    expect(jobsSnapshotSchema.safeParse({
-      jobs,
-      observedAt: "2026-09-09T00:00:00.000Z",
-      definitionsState: "ready",
-      executionsState: "ready",
-    }).success).toBe(true);
+    expect(
+      jobsSnapshotSchema.safeParse({
+        jobs,
+        observedAt: "2026-09-09T00:00:00.000Z",
+        definitionsState: "ready",
+        executionsState: "ready",
+      }).success,
+    ).toBe(true);
   });
 
   it("allows local-path and endpoint-like identifiers from trusted sources", async () => {
     const localDefinition = fixture();
     writeJobs(localDefinition.home, [safeJob({ task_key: "/opt/private/job.py" })]);
-    await expect(readJobDefinitions(localDefinition.context, jobsManifest))
-      .resolves.toEqual([expect.objectContaining({ id: "/opt/private/job.py" })]);
+    await expect(readJobDefinitions(localDefinition.context, jobsManifest)).resolves.toEqual([
+      expect.objectContaining({ id: "/opt/private/job.py" }),
+    ]);
 
     const endpointExecution = fixture();
     const database = createExecutions(endpointExecution.home);
-    database.prepare(`
+    database
+      .prepare(
+        `
       INSERT INTO attempt_records
         (attempt_key, task_ref, source_kind, process_ref, process_number, attempt_state, claimed_time, begin_time, end_time, private_error)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run("https://internal.example.test/attempt", "job-one", "cron", "PRIVATE PROCESS", 1, "completed", "2026-09-09T02:00:00Z", null, null, null);
+    `,
+      )
+      .run(
+        "https://internal.example.test/attempt",
+        "job-one",
+        "cron",
+        "PRIVATE PROCESS",
+        1,
+        "completed",
+        "2026-09-09T02:00:00Z",
+        null,
+        null,
+        null,
+      );
     database.close();
 
-    const histories = await readRecentJobExecutions(endpointExecution.context, jobsManifest, ["job-one"]);
-    expect(histories.get("job-one")?.executions[0]?.id).toBe("https://internal.example.test/attempt");
+    const histories = await readRecentJobExecutions(endpointExecution.context, jobsManifest, [
+      "job-one",
+    ]);
+    expect(histories.get("job-one")?.executions[0]?.id).toBe(
+      "https://internal.example.test/attempt",
+    );
   });
 
   it("uses null when a job has no valid creation timestamp", async () => {
@@ -305,15 +354,21 @@ describe("jobs adapters", () => {
 
   it("rejects missing, malformed, and structurally invalid definition sources", async () => {
     const missing = fixture();
-    await expect(readJobDefinitions(missing.context, jobsManifest)).rejects.toMatchObject({ code: "missing_source" });
+    await expect(readJobDefinitions(missing.context, jobsManifest)).rejects.toMatchObject({
+      code: "missing_source",
+    });
 
     const malformed = fixture();
     writeFileSync(path.join(malformed.home, jobsManifest.definitionsRelativePath), "{not json");
-    await expect(readJobDefinitions(malformed.context, jobsManifest)).rejects.toMatchObject({ code: "source_malformed" });
+    await expect(readJobDefinitions(malformed.context, jobsManifest)).rejects.toMatchObject({
+      code: "source_malformed",
+    });
 
     const invalid = fixture();
     writeJobs(invalid.home, [{ display_name: "Missing id" }]);
-    await expect(readJobDefinitions(invalid.context, jobsManifest)).rejects.toMatchObject({ code: "source_malformed" });
+    await expect(readJobDefinitions(invalid.context, jobsManifest)).rejects.toMatchObject({
+      code: "source_malformed",
+    });
   });
 
   it("loads at most ten recent executions per job without selecting private columns", async () => {
@@ -326,9 +381,31 @@ describe("jobs adapters", () => {
     `);
     for (let index = 0; index < 12; index += 1) {
       const timestamp = new Date(Date.UTC(2026, 8, 9, 0, index)).toISOString();
-      insert.run(`execution-${index}`, "job-one", "cron", "PRIVATE PROCESS", 9999, index === 11 ? "failed" : "completed", timestamp, timestamp, timestamp, "PRIVATE ERROR");
+      insert.run(
+        `execution-${index}`,
+        "job-one",
+        "cron",
+        "PRIVATE PROCESS",
+        9999,
+        index === 11 ? "failed" : "completed",
+        timestamp,
+        timestamp,
+        timestamp,
+        "PRIVATE ERROR",
+      );
     }
-    insert.run("execution-two", "job-two", "cron", "PRIVATE PROCESS", 9999, "unknown", "2026-09-09T02:00:00Z", null, "2026-09-09T02:01:00Z", "PRIVATE ERROR");
+    insert.run(
+      "execution-two",
+      "job-two",
+      "cron",
+      "PRIVATE PROCESS",
+      9999,
+      "unknown",
+      "2026-09-09T02:00:00Z",
+      null,
+      "2026-09-09T02:01:00Z",
+      "PRIVATE ERROR",
+    );
     database.close();
 
     const executions = await readRecentJobExecutions(context, jobsManifest, ["job-one", "job-two"]);
@@ -350,14 +427,18 @@ describe("jobs adapters", () => {
       platformRoot: home,
       manifest: privateManifest,
       definitionReader: readJobDefinitions,
-      executionReader: async () => { throw new SourceSecurityError("missing_source"); },
+      executionReader: async () => {
+        throw new SourceSecurityError("missing_source");
+      },
       now: new Date("2026-09-09T03:00:00Z"),
     });
 
     expect(page.jobs).toHaveLength(1);
     expect(page.definitionsState).toBe("ready");
     expect(page.executionsState).toBe("unavailable");
-    expect(page.failures).toEqual([expect.objectContaining({ sourceId: "job-executions", code: "missing_source" })]);
+    expect(page.failures).toEqual([
+      expect.objectContaining({ sourceId: "job-executions", code: "missing_source" }),
+    ]);
   });
 
   it("returns a strict no-store jobs snapshot from the GET route", async () => {

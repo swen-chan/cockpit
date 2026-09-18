@@ -7,9 +7,9 @@ import remarkGfm from "remark-gfm";
 import { HighlightedText } from "@/components/highlighted-text";
 
 function highlighted(children: ReactNode, query: string): ReactNode {
-  return Children.map(children, (child) => (
-    typeof child === "string" ? <HighlightedText text={child} query={query} /> : child
-  ));
+  return Children.map(children, (child) =>
+    typeof child === "string" ? <HighlightedText text={child} query={query} /> : child,
+  );
 }
 
 export function SafeMarkdown({
@@ -37,7 +37,9 @@ export function SafeMarkdown({
           h1: ({ children }) => <h1>{highlighted(children, query)}</h1>,
           h2: ({ children }) => <h2>{highlighted(children, query)}</h2>,
           h3: ({ children }) => <h3>{highlighted(children, query)}</h3>,
-          img: ({ alt }) => <span className="omitted-image">[Image omitted: {alt || "untrusted source"}]</span>,
+          img: ({ alt }) => (
+            <span className="omitted-image">[Image omitted: {alt || "untrusted source"}]</span>
+          ),
           li: ({ children }) => <li>{highlighted(children, query)}</li>,
           p: ({ children }) => <p>{highlighted(children, query)}</p>,
           strong: ({ children }) => <strong>{highlighted(children, query)}</strong>,

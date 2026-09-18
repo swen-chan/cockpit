@@ -280,18 +280,18 @@ Acceptance criteria:
 The local discovery snapshot is documented in `discovery.md`. The intended
 mapping is:
 
-| Product data | Candidate source |
-| --- | --- |
-| Active profile/home | Hermes profile semantics and `HERMES_HOME` resolution |
-| Model/provider summary | Safe allowlist from `<SAFE_CONFIG_SOURCE>` |
-| Conversations | `<CONVERSATION_STORE>` through private adapter contracts |
-| System prompt | `<PROMPT_RECORDS>` with clear provenance |
-| Memory/profile | Named private document sources |
-| SOUL/AGENTS | Approved workspace root |
-| Skills | `<SKILL_MANIFEST_SOURCES>` |
-| Jobs | `<JOB_DEFINITION_SOURCE>` |
-| Job executions | `<JOB_EXECUTION_STORE>` |
-| Files | `<local-path>/Hermes` |
+| Product data           | Candidate source                                         |
+| ---------------------- | -------------------------------------------------------- |
+| Active profile/home    | Hermes profile semantics and `HERMES_HOME` resolution    |
+| Model/provider summary | Safe allowlist from `<SAFE_CONFIG_SOURCE>`               |
+| Conversations          | `<CONVERSATION_STORE>` through private adapter contracts |
+| System prompt          | `<PROMPT_RECORDS>` with clear provenance                 |
+| Memory/profile         | Named private document sources                           |
+| SOUL/AGENTS            | Approved workspace root                                  |
+| Skills                 | `<SKILL_MANIFEST_SOURCES>`                               |
+| Jobs                   | `<JOB_DEFINITION_SOURCE>`                                |
+| Job executions         | `<JOB_EXECUTION_STORE>`                                  |
+| Files                  | `<local-path>/Hermes`                                    |
 
 ## Confirmed product decisions
 

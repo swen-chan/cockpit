@@ -15,15 +15,18 @@ export function isApprovedOrigin(host: string, origin: string | null): boolean {
 }
 
 export function isUnexpectedCrossSiteRequest(headers: Headers): boolean {
-  return headers.get("sec-fetch-site") === "cross-site"
-    && headers.get("sec-fetch-mode") === "no-cors";
+  return (
+    headers.get("sec-fetch-site") === "cross-site" && headers.get("sec-fetch-mode") === "no-cors"
+  );
 }
 
 export function proxy(request: NextRequest) {
   const host = request.headers.get("host");
-  if (!isApprovedLoopbackHost(host)
-    || !isApprovedOrigin(host, request.headers.get("origin"))
-    || isUnexpectedCrossSiteRequest(request.headers)) {
+  if (
+    !isApprovedLoopbackHost(host) ||
+    !isApprovedOrigin(host, request.headers.get("origin")) ||
+    isUnexpectedCrossSiteRequest(request.headers)
+  ) {
     return new NextResponse("Forbidden", {
       status: 403,
       headers: { "Cache-Control": "private, no-store" },

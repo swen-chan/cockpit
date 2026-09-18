@@ -117,11 +117,13 @@ function writeConversationSources(home: string): string {
       raw_metadata TEXT
     );
   `);
-  database.prepare("INSERT INTO system_prompts VALUES (?, ?, ?)").run(
-    "abcdef1234567890",
-    "# Runtime prompt\n\napi_key: SYSTEM_PROMPT_CREDENTIAL_MARKER",
-    "RAW_PROMPT_METADATA_MARKER",
-  );
+  database
+    .prepare("INSERT INTO system_prompts VALUES (?, ?, ?)")
+    .run(
+      "abcdef1234567890",
+      "# Runtime prompt\n\napi_key: SYSTEM_PROMPT_CREDENTIAL_MARKER",
+      "RAW_PROMPT_METADATA_MARKER",
+    );
 
   const insertConversation = database.prepare(
     "INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -210,9 +212,10 @@ function fixtureJob(index: number): Record<string, unknown> {
   return {
     id: `job-safe-${index}`,
     name: `Synthetic job ${index}`,
-    schedule: index === 1
-      ? { kind: "cron", expr: "0 9 * * *", display: "Daily at 09:00" }
-      : { expr: "30 14 * * *" },
+    schedule:
+      index === 1
+        ? { kind: "cron", expr: "0 9 * * *", display: "Daily at 09:00" }
+        : { expr: "30 14 * * *" },
     ...(index === 1 ? { schedule_display: "Daily at 09:00" } : {}),
     created_at: `2026-09-0${index}T01:00:00Z`,
     enabled: true,
@@ -233,10 +236,14 @@ function fixtureJob(index: number): Record<string, unknown> {
 
 function writeJobSources(home: string): { databasePath: string; definitionsPath: string } {
   const definitionsPath = path.join(home, "cron", "jobs.json");
-  writeFileSync(definitionsPath, JSON.stringify({
-    jobs: [fixtureJob(1), fixtureJob(2)],
-    raw_root: "RAW_JOBS_ROOT_MARKER",
-  }), "utf8");
+  writeFileSync(
+    definitionsPath,
+    JSON.stringify({
+      jobs: [fixtureJob(1), fixtureJob(2)],
+      raw_root: "RAW_JOBS_ROOT_MARKER",
+    }),
+    "utf8",
+  );
 
   const databasePath = path.join(home, "cron", "executions.db");
   const database = new Database(databasePath);
@@ -294,47 +301,55 @@ function populateHermesFixture(root: string): HermesFixture {
   const nestedPath = path.join(workspace, "nested", "notes.md");
   const manualPath = path.join(workspace, "manual.pdf");
 
-  writeFileSync(settingsPath, [
-    "model:",
-    "  default: fixture-model",
-    "  provider: fixture-provider",
-    "  api_key: CONFIG_CREDENTIAL_MARKER",
-    "raw_config: RAW_CONFIG_MARKER",
-    "platform_toolsets:",
-    "  cli: [file]",
-    "known_builtin_toolsets:",
-    "  cli: [file, web]",
-    "known_plugin_toolsets:",
-    "  cli: []",
-    "skills:",
-    "  disabled: []",
-  ].join("\n"), "utf8");
+  writeFileSync(
+    settingsPath,
+    [
+      "model:",
+      "  default: fixture-model",
+      "  provider: fixture-provider",
+      "  api_key: CONFIG_CREDENTIAL_MARKER",
+      "raw_config: RAW_CONFIG_MARKER",
+      "platform_toolsets:",
+      "  cli: [file]",
+      "known_builtin_toolsets:",
+      "  cli: [file, web]",
+      "known_plugin_toolsets:",
+      "  cli: []",
+      "skills:",
+      "  disabled: []",
+    ].join("\n"),
+    "utf8",
+  );
   writeFileSync(
     memoryPath,
     "# Memory\n\ndurable-browser-marker\n\napi_key: MEMORY_CREDENTIAL_MARKER",
     "utf8",
   );
   writeFileSync(userPath, "# User\n\npassword: USER_PASSWORD_MARKER", "utf8");
-  writeFileSync(skillPath, [
-    "---",
-    "name: fixture-skill",
-    "description: A safe synthetic skill.",
-    "metadata:",
-    "  hermes:",
-    "    category: research",
-    "---",
-    "# Fixture Skill",
-    "",
-    "bounded-skill-marker",
-    "",
-    "<script>window.__cockpitSkillExecuted = true</script>",
-    "",
-    "![remote canary](https://remote.invalid/cockpit-skill.png)",
-    "",
-    '<iframe src="https://remote.invalid/cockpit-skill-frame"></iframe>',
-    "",
-    "api_key: SKILL_CREDENTIAL_MARKER",
-  ].join("\n"), "utf8");
+  writeFileSync(
+    skillPath,
+    [
+      "---",
+      "name: fixture-skill",
+      "description: A safe synthetic skill.",
+      "metadata:",
+      "  hermes:",
+      "    category: research",
+      "---",
+      "# Fixture Skill",
+      "",
+      "bounded-skill-marker",
+      "",
+      "<script>window.__cockpitSkillExecuted = true</script>",
+      "",
+      "![remote canary](https://remote.invalid/cockpit-skill.png)",
+      "",
+      '<iframe src="https://remote.invalid/cockpit-skill-frame"></iframe>',
+      "",
+      "api_key: SKILL_CREDENTIAL_MARKER",
+    ].join("\n"),
+    "utf8",
+  );
   writeFileSync(soulPath, "# Soul\n\nSynthetic principles.", "utf8");
   writeFileSync(agentsPath, "# Agents\n\nSynthetic rules.", "utf8");
   writeFileSync(docsPath, "# Notes\n\npassword=WORKSPACE_CREDENTIAL_MARKER", "utf8");
@@ -411,15 +426,14 @@ export function snapshotHermesFixtureSources(fixture: HermesFixture): HermesFixt
   };
 }
 
-export function assertHermesFixtureSourcesUnchanged(
-  before: HermesFixtureSourceSnapshot,
-): void {
+export function assertHermesFixtureSourcesUnchanged(before: HermesFixtureSourceSnapshot): void {
   const changes: string[] = [];
   const expectedFiles = new Set(before.files.map((file) => file.path));
   const allowedEmptyWalFiles = new Set(before.allowedEmptyWalFiles);
   const existingSharedMemoryFiles = new Set(before.existingSharedMemoryFiles);
-  const currentFiles = listFixtureFiles(before.root)
-    .filter((filename) => !before.sharedMemoryFiles.includes(filename));
+  const currentFiles = listFixtureFiles(before.root).filter(
+    (filename) => !before.sharedMemoryFiles.includes(filename),
+  );
 
   for (const filename of before.sharedMemoryFiles) {
     const stats = lstatSync(filename, { throwIfNoEntry: false });
@@ -456,11 +470,14 @@ export function assertHermesFixtureSourcesUnchanged(
     }
     const actual = fingerprintSource(before.root, expected.path);
     if (actual.hash !== expected.hash) changes.push(`${expected.label}: SHA-256 changed`);
-    if (actual.mtimeNanoseconds !== expected.mtimeNanoseconds) changes.push(`${expected.label}: mtime changed`);
+    if (actual.mtimeNanoseconds !== expected.mtimeNanoseconds)
+      changes.push(`${expected.label}: mtime changed`);
     if (actual.size !== expected.size) changes.push(`${expected.label}: size changed`);
   }
   if (changes.length > 0) {
-    throw new Error(`Synthetic Hermes sources changed during read-only verification:\n${changes.join("\n")}`);
+    throw new Error(
+      `Synthetic Hermes sources changed during read-only verification:\n${changes.join("\n")}`,
+    );
   }
 }
 
