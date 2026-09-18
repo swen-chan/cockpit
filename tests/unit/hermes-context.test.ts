@@ -40,6 +40,21 @@ describe("Hermes context resolution", () => {
     });
   });
 
+  it("uses an explicit custom home when the default platform root is absent", () => {
+    const explicit = path.join(fixtureRoot, "custom");
+    mkdirSync(explicit);
+    const context = resolveHermesContext({
+      platformRoot: path.join(fixtureRoot, "missing-platform-root"),
+      explicitHome: explicit,
+    });
+    expect(context).toMatchObject({
+      home: realpathSync(explicit),
+      profile: "custom",
+      profileKind: "custom",
+      source: "explicit",
+    });
+  });
+
   it("resolves default and named sticky profiles", () => {
     expect(resolveHermesContext({ platformRoot, stickyProfile: "default" })).toMatchObject({
       profile: "default",

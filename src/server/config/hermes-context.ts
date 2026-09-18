@@ -68,7 +68,19 @@ function contextFromHome(
   source: HermesContext["source"],
 ): HermesContext {
   const canonicalHome = canonicalizeDirectory(home);
-  const canonicalPlatformRoot = canonicalizeDirectory(platformRoot);
+  let canonicalPlatformRoot: string;
+  try {
+    canonicalPlatformRoot = canonicalizeDirectory(platformRoot);
+  } catch (error) {
+    if (
+      (source === "explicit" || source === "environment") &&
+      error instanceof SourceSecurityError &&
+      error.code === "missing_source"
+    ) {
+      return { home: canonicalHome, profile: "custom", profileKind: "custom", source };
+    }
+    throw error;
+  }
   const profilesRoot = path.join(canonicalPlatformRoot, "profiles");
 
   if (canonicalHome === canonicalPlatformRoot) {
