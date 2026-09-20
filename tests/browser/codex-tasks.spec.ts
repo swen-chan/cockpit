@@ -10,6 +10,13 @@ function requiredEnvironment(name: string): string {
 
 const auditLog = requiredEnvironment("COCKPIT_E2E_CODEX_AUDIT_LOG");
 const forbiddenMarkers = Object.freeze([
+  "PRIVATE_CONFIG_SENTINEL",
+  "DUPLICATE_MIRROR_SENTINEL",
+  "RAW_REASONING_SENTINEL",
+  "ENCRYPTED_SENTINEL",
+  "PRIVATE_ARGUMENT_SENTINEL",
+  "PRIVATE_OUTPUT_SENTINEL",
+  "DO_NOT_EXECUTE_SENTINEL",
   "FORBIDDEN_RAW_REASONING_MARKER",
   "FORBIDDEN_RAW_COMMAND_MARKER",
   "FORBIDDEN_RAW_ACTION_MARKER",
@@ -80,6 +87,30 @@ async function expectNoPageOverflow(page: Page): Promise<void> {
   }));
   expect(widths.scroll).toBeLessThanOrEqual(widths.client);
 }
+
+test("reads paginated storage through the owned copy with folded Process and no raw payloads", async ({
+  page,
+}) => {
+  const monitor = monitorPage(page);
+  await page.goto("/agents/codex/conversations");
+  await page.getByRole("button", { name: /App Server integration/u }).click();
+  await expect(page.getByText("The synthetic project is ready.", { exact: true })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByText("Inspect the synthetic project.", { exact: true })).toHaveCount(1);
+  await expect(page.getByText("Still in progress; refresh later", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Local recorded history only; inherited history is not followed.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  const process = page.locator(".process-disclosure");
+  await expect(process).toHaveCount(1);
+  await expect(process).not.toHaveAttribute("open", "");
+  await process.locator("summary").first().click();
+  await expect(process.getByText("Checking the recorded activity.", { exact: true })).toBeVisible();
+  await expectNoRuntimeLeaks(page, monitor);
+});
 
 test("inspects paginated Codex Tasks and folded Process evidence without eager detail reads", async ({
   page,

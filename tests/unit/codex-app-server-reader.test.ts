@@ -132,9 +132,59 @@ describe("one-operation Codex reader", () => {
         expect(options.database).toBe(path.join(options.owner.directory, "state_5.sqlite"));
         expect(options.rollout).toBe(path.join(options.owner.directory, "selected.jsonl"));
       },
+      async readPaginatedRollout() {
+        return null;
+      },
     };
     return { ...base, ...overrides };
   }
+
+  it("uses metadata-only App Server reads for paginated history and still verifies the copy", async () => {
+    const history = {
+      turns: [
+        {
+          items: [
+            { type: "agentMessage", text: "Synthetic recorded final", phase: "final_answer" },
+          ],
+          status: "completed" as const,
+          itemsView: "full" as const,
+        },
+      ],
+      unsupportedRecords: 1,
+      localHistoryOnly: true as const,
+    };
+    const exchange = vi.fn(async (options) => {
+      expect(options.includeTurns).toBe(false);
+      return { result: { thread: { id: options.taskId, source: "cli", turns: [] } }, metrics };
+    });
+    const reader = createCodexAppServerReaderForTest(
+      dependencies({ readPaginatedRollout: async () => history, exchangeAppServer: exchange }),
+    );
+    await expect(reader.read(selectedPanel, "synthetic-task")).resolves.toMatchObject({
+      thread: { id: "synthetic-task", turns: history.turns },
+      localHistoryOnly: true,
+      unsupportedRecords: 1,
+    });
+    expect(order.slice(-2)).toEqual(["recheck", "cleanup"]);
+    expect(exchange).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fall back to raw or live sources when paginated decoding fails", async () => {
+    const exchange = vi.fn();
+    const reader = createCodexAppServerReaderForTest(
+      dependencies({
+        readPaginatedRollout: async () => {
+          throw new SourceSecurityError("source_malformed");
+        },
+        exchangeAppServer: exchange,
+      }),
+    );
+    await expect(reader.read(selectedPanel, "synthetic-task")).rejects.toMatchObject({
+      code: "source_malformed",
+    });
+    expect(exchange).not.toHaveBeenCalled();
+    expect(order.at(-1)).toBe("cleanup");
+  });
 
   it("runs probe, snapshot and one exchange inside one owned home, then cleans before releasing", async () => {
     const reader = createCodexAppServerReaderForTest(dependencies());
@@ -473,7 +523,11 @@ describe("one-operation Codex reader", () => {
     mkdirSync(archived, { mode: 0o700 });
     const taskId = "11111111-1111-4111-8111-000000000001";
     const rollout = path.join(sessions, "selected.jsonl");
-    writeFileSync(rollout, "{}\n", { mode: 0o600 });
+    writeFileSync(
+      rollout,
+      `${JSON.stringify({ type: "session_meta", payload: { id: taskId, history_mode: "legacy" } })}\n`,
+      { mode: 0o600 },
+    );
     const stateDatabase = path.join(source, "state_5.sqlite");
     activeWriter = new Database(stateDatabase);
     activeWriter.pragma("journal_mode = WAL");

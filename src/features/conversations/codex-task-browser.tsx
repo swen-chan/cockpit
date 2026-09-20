@@ -464,6 +464,9 @@ export function CodexTaskBrowser({ initialPage }: { initialPage: CodexTaskPage }
                 ) : (
                   <SourceState kind="empty" detail="This task contains no safe transcript turns." />
                 )}
+                {detail.historyNote ? (
+                  <p className="text-sm text-muted-foreground">{detail.historyNote}</p>
+                ) : null}
                 <OmissionNotes items={detail.omitted} label="Omitted task content" />
               </>
             ) : null}

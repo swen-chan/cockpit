@@ -304,6 +304,44 @@ describe("Codex bounded synthetic stdio contract", () => {
     assertGroupsGone();
   });
 
+  it("requests only bound metadata when local paginated history supplies turns", async () => {
+    configure();
+    const reply = await exchangeAppServer({
+      ...options(),
+      kind: "read",
+      taskId: "synthetic-thread",
+      copiedRowExists: true,
+      includeTurns: false,
+    });
+    expect(reply.result).toMatchObject({ thread: { id: "synthetic-thread", turns: [] } });
+    expect(observations().map((row) => row.method)).toEqual([
+      "initialize",
+      "initialized",
+      "thread/read",
+    ]);
+    expect(observations()[2]?.params).toEqual({
+      threadId: "synthetic-thread",
+      includeTurns: false,
+    });
+    assertGroupsGone();
+  });
+
+  it("rejects unexpected turns in a metadata-only response", async () => {
+    configure("success", {
+      readResult: { thread: { id: "synthetic-thread", source: "cli", turns: [{}] } },
+    });
+    await expect(
+      exchangeAppServer({
+        ...options(),
+        kind: "read",
+        taskId: "synthetic-thread",
+        copiedRowExists: true,
+        includeTurns: false,
+      }),
+    ).rejects.toMatchObject({ code: "protocol_violation" });
+    assertGroupsGone();
+  });
+
   it.each(["allowed-notification", "four-notifications"])(
     "ignores only the bounded %s fixture",
     async (mode) => {

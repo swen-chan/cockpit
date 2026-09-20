@@ -93,12 +93,15 @@ export async function exchangeAppServer({
   kind,
   taskId,
   copiedRowExists,
+  includeTurns = true,
   cursor = null,
   owner,
   signal,
   sampleGroup,
 }) {
   if (kind !== "list" && kind !== "read") throw fail("protocol_violation");
+  if (typeof includeTurns !== "boolean" || (kind === "list" && !includeTurns))
+    throw fail("protocol_violation");
   if (
     kind === "read" &&
     (typeof taskId !== "string" || !taskId || taskId.length > 128 || copiedRowExists !== true)
@@ -153,7 +156,7 @@ export async function exchangeAppServer({
                 limit: 5,
                 cursor,
               }
-            : { threadId: taskId, includeTurns: true },
+            : { threadId: taskId, includeTurns },
       });
       return;
     }
@@ -175,6 +178,8 @@ export async function exchangeAppServer({
       !sources.has(result.thread.source) ||
       !Array.isArray(result.thread.turns)
     )
+      throw fail("protocol_violation");
+    if (kind === "read" && !includeTurns && result.thread.turns.length !== 0)
       throw fail("protocol_violation");
     state = "done";
     api.complete(result);

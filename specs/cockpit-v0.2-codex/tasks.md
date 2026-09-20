@@ -19,6 +19,16 @@ approved minimum amendments, and evidence limits.
 
 ## Outcome and execution boundary
 
+### Paginated-history correction — approved 2026-09-19
+
+The prior synthetic gate covered legacy stored history, not paginated storage.
+The user confirmed this compatibility correction after real detail reads failed.
+Implementation now decodes completed display events from the existing selected
+owned copy and retains metadata-only App Server reads plus the existing safe
+projection. No source data is converted. Regression and real-source evidence are
+tracked separately; local browser acceptance after restart remains required.
+See [the bounded adapter decision](../../docs/codex-paginated-history.md).
+
 One local Cockpit can inspect Hermes and Codex separately, reopen the last-used
 Agent without a picker, and show Codex Tasks with a safe Project label and a
 default-collapsed Process timeline. Hermes behavior and all source, privacy,
