@@ -13,7 +13,7 @@ Reporting for this repository. Do not open a public issue with exploit details.
 Include the affected version or commit, operating system, impact, and a minimal
 reproduction using synthetic data. Never upload real tokens, conversations,
 databases, configuration, local paths, screenshots, or logs from a personal
-Hermes instance.
+agent installation, including Hermes or Codex.
 
 ## v0.1 trust model
 
@@ -32,7 +32,7 @@ Examples of in-scope security issues include:
 
 - credentials or non-allowlisted private data reaching logs or browser DTOs;
 - a browser-controlled path escaping the approved workspace;
-- Cockpit changing Hermes business data or source content;
+- Cockpit changing agent business data or source content;
 - bypassing the loopback Host or Origin boundary;
 - source content executing active HTML or triggering unexpected remote loads.
 
@@ -47,6 +47,12 @@ the supported-version statement above. Its reader is limited to the explicitly
 configured local Codex home, the pinned Codex CLI version, and the fixed
 `state_5.sqlite` source. Cockpit prepares a disposable snapshot by opening that
 database with `SQLITE_OPEN_READONLY`, `fileMustExist`, and `query_only`.
+
+`COCKPIT_CODEX_HOME`, `COCKPIT_CODEX_WORKSPACE_ROOT`,
+`COCKPIT_CODEX_CUSTOM_GUIDANCE`, and `COCKPIT_DEFAULT_PANEL` are trusted,
+operator-controlled startup settings, not browser-supplied source paths.
+Selecting an already configured panel does not grant access to another path.
+Multiple panels still serve one trusted local operator, not multiple users.
 
 That read may use only SQLite's narrow coordination behavior: SQLite may create
 or restore an empty `-wal` companion and may create or update the disposable
