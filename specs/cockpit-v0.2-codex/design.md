@@ -21,6 +21,19 @@ owned cleanup, so Task 1 is GO; see the [synthetic spike findings](spike-report.
 
 ## 1. Design premise
 
+### Confirmed compatibility amendment — 2026-09-19
+
+Real-source acceptance exposed the previously documented paginated-history
+limitation. The user approved a bounded paginated adapter, synthetic regressions,
+and no source conversion. For paginated tasks only, the selected owned rollout's
+completed display events supply turns, while `thread/read(includeTurns:false)`
+supplies bound metadata. Legacy full-history reads and all snapshot/DTO boundaries
+remain unchanged. This narrowly supersedes the blanket direct-JSONL rejection in
+the original decision table below; it does not authorize a general raw-history
+reader, inherited-path traversal, or replay of model/tool payloads.
+
+See [the compatibility decision and evidence limits](../../docs/codex-paginated-history.md).
+
 ### User outcome
 
 A returning local user opens Cockpit directly in the Agent panel they used last,

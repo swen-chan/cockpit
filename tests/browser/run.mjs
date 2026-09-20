@@ -367,6 +367,7 @@ function browserCodexProtocolFixture(mode, home, workspaceRoot) {
       "older-page": { data: summaries.slice(5), nextCursor: null },
     },
     readResultsById,
+    paginatedTaskIds: [TASK_IDS[4]],
   };
 }
 
@@ -461,7 +462,20 @@ function createCodexFixture(mode) {
       const insert = database.prepare("INSERT INTO threads VALUES (?, ?)");
       for (const id of TASK_IDS) {
         const rollout = path.join(sessions, `${id}.jsonl`);
-        writeFileSync(rollout, `${JSON.stringify({ synthetic: id })}\n`, { mode: 0o600 });
+        const paginatedRecords =
+          id === TASK_IDS[4]
+            ? JSON.parse(
+                readFileSync(new URL("../fixtures/codex-paginated.json", import.meta.url), "utf8"),
+              )
+            : null;
+        if (paginatedRecords) paginatedRecords[0].payload.id = id;
+        writeFileSync(
+          rollout,
+          paginatedRecords
+            ? paginatedRecords.map((record) => JSON.stringify(record)).join("\n") + "\n"
+            : `${JSON.stringify({ type: "session_meta", payload: { id, history_mode: "legacy" } })}\n`,
+          { mode: 0o600 },
+        );
         insert.run(id, rollout);
       }
     } finally {

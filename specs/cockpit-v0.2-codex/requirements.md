@@ -367,7 +367,11 @@ Acceptance criteria:
    after safe transformation and aggregation, never raw or hidden items or
    second-level output and patch details, so expanding details cannot change it.
 10. The Process disclosure shall present one bounded timeline that preserves the
-    stable order of authoritative terminal items returned by `thread/read`.
+    stable order of authoritative terminal items returned by `thread/read`, or
+    completed display events in the selected owned paginated rollout under the
+    user-confirmed 2026-09-19 compatibility amendment. Paginated display shall
+    explicitly identify local recorded history and shall not follow inherited
+    history references. Raw response-item mirrors shall not supply display data.
     Item labels may identify Progress, Reasoning summary, Plan, Command, Tool,
     and Changes, but visual categorization shall not reorder the evidence.
     Cockpit shall not replay streaming deltas or present an in-progress snapshot

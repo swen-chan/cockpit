@@ -1,0 +1,126 @@
+[
+  {
+    "type": "session_meta",
+    "payload": {
+      "id": "11111111-1111-4111-8111-000000000001",
+      "history_mode": "paginated",
+      "history_base": { "path": "/synthetic/never-follow.jsonl" },
+      "base_instructions": "PRIVATE_CONFIG_SENTINEL"
+    }
+  },
+  { "type": "event_msg", "payload": { "type": "task_started", "turn_id": "turn-a" } },
+  {
+    "type": "event_msg",
+    "payload": {
+      "type": "item_completed",
+      "turn_id": "turn-a",
+      "item": {
+        "type": "UserMessage",
+        "id": "user-a",
+        "content": [{ "type": "text", "text": "Inspect the synthetic project." }]
+      }
+    }
+  },
+  {
+    "type": "response_item",
+    "payload": {
+      "type": "message",
+      "role": "user",
+      "content": [{ "type": "input_text", "text": "DUPLICATE_MIRROR_SENTINEL" }]
+    }
+  },
+  {
+    "type": "event_msg",
+    "payload": {
+      "type": "item_completed",
+      "turn_id": "turn-a",
+      "item": {
+        "type": "AgentMessage",
+        "id": "progress-a",
+        "phase": "commentary",
+        "content": [{ "type": "Text", "text": "Checking the recorded activity." }]
+      }
+    }
+  },
+  {
+    "type": "event_msg",
+    "payload": {
+      "type": "item_completed",
+      "turn_id": "turn-a",
+      "item": {
+        "type": "Reasoning",
+        "id": "reasoning-a",
+        "summary_text": ["Recorded summary only."],
+        "raw_content": ["RAW_REASONING_SENTINEL"],
+        "encrypted_content": "ENCRYPTED_SENTINEL"
+      }
+    }
+  },
+  {
+    "type": "event_msg",
+    "payload": {
+      "type": "item_completed",
+      "turn_id": "turn-a",
+      "item": {
+        "type": "CommandExecution",
+        "id": "command-a",
+        "status": "completed",
+        "cwd": "/synthetic/workspace",
+        "command": ["DO_NOT_EXECUTE_SENTINEL"],
+        "parsed_cmd": [{ "type": "list_files", "path": "." }],
+        "aggregated_output": "README.md\n",
+        "exit_code": 0,
+        "duration": { "secs": 0, "nanos": 5000000 }
+      }
+    }
+  },
+  {
+    "type": "event_msg",
+    "payload": {
+      "type": "item_completed",
+      "turn_id": "turn-a",
+      "item": {
+        "type": "McpToolCall",
+        "id": "tool-a",
+        "status": "completed",
+        "arguments": { "token": "PRIVATE_ARGUMENT_SENTINEL" },
+        "result": { "content": "PRIVATE_OUTPUT_SENTINEL" }
+      }
+    }
+  },
+  {
+    "type": "event_msg",
+    "payload": {
+      "type": "item_completed",
+      "turn_id": "turn-a",
+      "item": {
+        "type": "AgentMessage",
+        "id": "answer-a",
+        "phase": "final_answer",
+        "content": [{ "type": "Text", "text": "The synthetic project is ready." }]
+      }
+    }
+  },
+  {
+    "type": "event_msg",
+    "payload": {
+      "type": "task_complete",
+      "turn_id": "turn-a",
+      "error": null,
+      "last_agent_message": "DUPLICATE_FINAL_SENTINEL"
+    }
+  },
+  { "type": "event_msg", "payload": { "type": "task_started", "turn_id": "turn-b" } },
+  {
+    "type": "event_msg",
+    "payload": {
+      "type": "item_completed",
+      "turn_id": "turn-b",
+      "item": {
+        "type": "UserMessage",
+        "id": "user-b",
+        "content": [{ "type": "text", "text": "Continue the synthetic task." }]
+      }
+    }
+  }
+]

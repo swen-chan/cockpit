@@ -270,6 +270,9 @@ export const safeCodexTurnSchema = z
 export const codexTaskDetailSchema = z
   .object({
     summary: codexTaskSummarySchema,
+    historyNote: z
+      .literal("Local recorded history only; inherited history is not followed.")
+      .optional(),
     turns: z.array(safeCodexTurnSchema).max(100),
     observedAt: isoTimestampSchema,
     omitted: z.array(omittedContentSchema).max(20),

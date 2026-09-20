@@ -160,6 +160,8 @@ const turnDecoder = z.object({
 });
 const detailResultDecoder = z.object({
   thread: threadBaseDecoder.extend({ turns: z.array(turnDecoder) }),
+  localHistoryOnly: z.literal(true).optional(),
+  unsupportedRecords: z.number().int().nonnegative().max(100_000).optional(),
 });
 
 type TaskSummary = z.infer<typeof codexTaskSummarySchema>;
@@ -1134,6 +1136,7 @@ function renderDetail(
   drafts: DraftTurn[],
   observedAt: string,
   omitted: Omission[],
+  localHistoryOnly = false,
 ): TaskDetail {
   for (;;) {
     let messageOrdinal = 0;
@@ -1169,7 +1172,17 @@ function renderDetail(
           process === null ? mergeOmissions(turn.omitted, turn.processOmitted) : turn.omitted,
       };
     });
-    const candidate = { summary, turns, observedAt, omitted };
+    const candidate = {
+      summary,
+      turns,
+      observedAt,
+      omitted,
+      ...(localHistoryOnly
+        ? {
+            historyNote: "Local recorded history only; inherited history is not followed." as const,
+          }
+        : {}),
+    };
     if (utf8.encode(JSON.stringify(candidate)).byteLength <= MAX_SERIALIZED_DETAIL_BYTES) {
       return parseOutput(codexTaskDetailSchema, candidate);
     }
@@ -1314,6 +1327,7 @@ export function projectCodexTaskDetail(
   const operatorHome = options.operatorHome ?? homedir();
   const omitted: Omission[] = [];
   const retainedTurns = decoded.thread.turns.slice(-MAX_TURNS);
+  addOmission(omitted, "unsupported", decoded.unsupportedRecords ?? 0);
   addOmission(omitted, "limit", decoded.thread.turns.length - retainedTurns.length);
   const drafts = retainedTurns.map((turn) =>
     draftTurn(turn, decoded.thread.cwd, options.panel, operatorHome),
@@ -1325,5 +1339,6 @@ export function projectCodexTaskDetail(
     drafts,
     (options.now ?? new Date()).toISOString(),
     omitted,
+    decoded.localHistoryOnly === true,
   );
 }

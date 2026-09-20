@@ -178,7 +178,12 @@ function operationResult(request) {
     Object.hasOwn(fixture.readResultsById, id)
       ? fixture.readResultsById[id]
       : undefined;
-  const result = mapped ?? fixture.readResult ?? { thread: thread(id ?? "synthetic-thread", true) };
+  const result = mapped ??
+    fixture.readResult ?? {
+      thread: thread(id ?? "synthetic-thread", request.params?.includeTurns !== false),
+    };
+  if (fixture.paginatedTaskIds?.includes(id) && request.params?.includeTurns === false)
+    return { ...result, thread: { ...result.thread, turns: [] } };
   if (mode === "excluded-source")
     return { ...result, thread: { ...result.thread, source: "exec" } };
   return result;
@@ -372,6 +377,20 @@ if (process.argv[2] === "--version") {
             ["thread/list", "thread/read"].includes(request.method)
           ) {
             state = "complete";
+            if (
+              request.method === "thread/read" &&
+              request.params?.includeTurns !== false &&
+              fixture.paginatedTaskIds?.includes(request.params?.threadId)
+            ) {
+              await send({
+                id: 2,
+                error: {
+                  code: -32600,
+                  message: "paginated threads do not support thread/read with includeTurns",
+                },
+              });
+              return;
+            }
             const result = operationResult(request);
             if (!(await inject(2, result, "operation"))) await send({ id: 2, result });
           } else {

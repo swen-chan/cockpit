@@ -29,6 +29,7 @@ export function exchangeAppServer(
     kind: "list" | "read";
     taskId?: string;
     copiedRowExists?: boolean;
+    includeTurns?: boolean;
     cursor?: string | null;
   },
 ): Promise<{ result: unknown; metrics: Metrics }>;

@@ -14,6 +14,7 @@ import {
 } from "./context";
 import { createOwnedTemp, type OwnedTemp } from "./owned-temp.mjs";
 import { exchangeAppServer, probeVersion } from "./protocol.mjs";
+import { readPaginatedRollout } from "./paginated-rollout";
 import { createStateSnapshot, verifyCopiedTask } from "./state-snapshot.mjs";
 
 interface ReaderOptions {
@@ -52,6 +53,7 @@ interface ReaderDependencies {
   readonly createStateSnapshot: typeof createStateSnapshot;
   readonly exchangeAppServer: typeof exchangeAppServer;
   readonly verifyCopiedTask: typeof verifyCopiedTask;
+  readonly readPaginatedRollout: typeof readPaginatedRollout;
 }
 
 const productionDependencies: ReaderDependencies = Object.freeze({
@@ -61,6 +63,7 @@ const productionDependencies: ReaderDependencies = Object.freeze({
   createStateSnapshot,
   exchangeAppServer,
   verifyCopiedTask,
+  readPaginatedRollout,
 });
 
 function normalizeFailure(error: unknown, readExchangeResourceLimit = false): SourceSecurityError {
@@ -188,6 +191,14 @@ function createReader(dependencies: ReaderDependencies): CodexAppServerReader {
                 owner,
                 ...signalOption,
               });
+        const paginated =
+          operation.kind === "read"
+            ? await dependencies.readPaginatedRollout({
+                owner,
+                taskId: operation.taskId,
+                ...signalOption,
+              })
+            : null;
         let response: Awaited<ReturnType<typeof exchangeAppServer>>;
         try {
           response =
@@ -208,6 +219,7 @@ function createReader(dependencies: ReaderDependencies): CodexAppServerReader {
                   kind: "read",
                   taskId: operation.taskId,
                   copiedRowExists: snapshot.copiedRowExists,
+                  ...(paginated ? { includeTurns: false } : {}),
                 });
         } catch (error) {
           throw normalizeFailure(error, operation.kind === "read");
@@ -222,7 +234,21 @@ function createReader(dependencies: ReaderDependencies): CodexAppServerReader {
             ...signalOption,
           });
         }
-        result = response.result;
+        if (paginated) {
+          const metadata = response.result as { thread: Record<string, unknown> };
+          if (
+            !metadata?.thread ||
+            metadata.thread.id !== (operation.kind === "read" ? operation.taskId : null)
+          )
+            throw new SourceSecurityError("protocol_violation");
+          result = {
+            thread: { ...metadata.thread, turns: paginated.turns },
+            localHistoryOnly: true,
+            unsupportedRecords: paginated.unsupportedRecords,
+          };
+        } else {
+          result = response.result;
+        }
         completed = true;
       }
     } catch (error) {
