@@ -78,7 +78,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   wal-index. This exception does not authorize application writes, changes to a
   main database, changes to an existing non-empty WAL, or changes to any
   business record or other Hermes file.
-- Unreleased v0.2 Codex work may apply that same narrow SQLite-owned
+- The v0.2 Codex preview may apply that same narrow SQLite-owned
   coordination exception only to the fixed configured Codex
   `state_5.sqlite`, while Cockpit's snapshot helper opens it with
   `SQLITE_OPEN_READONLY`, `fileMustExist`, and `query_only`. The real main
@@ -91,7 +91,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   harmful, or before any remote or multi-user mode is accepted.
 - A credential-free temporary `HOME`, fixed environment allowlist, and scrubbed
   snapshot reduce accidental discovery but are not an OS capability sandbox.
-  Unreleased v0.2 therefore trusts only the exact pinned Codex executable under
+  The v0.2 preview therefore trusts only the exact pinned Codex executable under
   the existing loopback, single-user, non-elevated model. An untrusted binary,
   remote service, elevated process, or multi-user deployment requires a new
   threat model and containment design.

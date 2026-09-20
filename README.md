@@ -17,13 +17,15 @@ Cockpit does not send messages, resume tasks, edit files, control jobs, or
 create a second persistent application database.
 
 > [!IMPORTANT]
-> **Developer preview, not universal agent support.** The v0.1 Hermes preset
+> **v0.2.0 is a developer preview, not universal agent support.** The Hermes preset
 > targets [Hermes Agent v0.21.2](https://github.com/NousResearch/hermes-agent/releases/tag/v2026.9.11)
-> (release `v2026.9.11`). The current source also includes Codex integration as
-> **unreleased v0.2 development**, pinned to Codex CLI `0.145.0`.
+> (release `v2026.9.11`). Codex integration is pinned to Codex CLI `0.145.0`.
 > Automated regression tests use synthetic data; limited local acceptance is
 > not a guarantee for other installations. There is no import wizard or
 > automatic source discovery.
+
+See the [v0.2.0 release notes](docs/releases/v0.2.0.md) for changes,
+installation instructions, and known limits.
 
 Cockpit is an independent open-source project. It is not affiliated with or
 endorsed by [Nous Research](https://nousresearch.com/), the
@@ -228,8 +230,10 @@ attach real agent data or machine-specific configuration.
 The implemented requirements, technical design, and acceptance history live in
 [`specs/cockpit-v0.1`](specs/cockpit-v0.1/) and
 [`specs/cockpit-v0.2-codex`](specs/cockpit-v0.2-codex/). These retain their
-version-specific scope and acceptance history; merged development is not a
-new release announcement.
+version-specific scope and acceptance history. Published previews are listed
+in [GitHub Releases](https://github.com/swen-chan/cockpit/releases); `main` may
+contain newer development work. A release aligns `package.json`, an immutable
+version tag, and release notes. Merging a PR does not publish a release by itself.
 
 <details>
 <summary><strong>Known limitations</strong></summary>
