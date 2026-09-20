@@ -2,7 +2,8 @@
 
 ## Supported versions
 
-The latest `v0.1.x` release receives best-effort security fixes. Earlier
+The latest published `v0.1.x` and `v0.2.x` developer previews receive best-effort
+security fixes. They are previews, not stable production releases. Untagged
 development snapshots are not supported releases.
 
 ## Reporting a vulnerability
@@ -15,9 +16,9 @@ reproduction using synthetic data. Never upload real tokens, conversations,
 databases, configuration, local paths, screenshots, or logs from a personal
 agent installation, including Hermes or Codex.
 
-## v0.1 trust model
+## Shared local trust model
 
-Cockpit v0.1 is designed for one trusted local operator. It binds to loopback
+Cockpit v0.1 and v0.2 are designed for one trusted local operator. Cockpit binds to loopback
 and inspects fixed server-defined sources through bounded, read-only adapters.
 It must run without elevated privileges; elevated execution is unsupported.
 LAN exposure, port forwarding, tunnels, reverse proxies, cloud hosting, and
@@ -40,11 +41,10 @@ Feature requests, unsupported remote deployments, and behavior already stated
 in the documented local trust model can be filed as regular issues without
 including private data.
 
-## Unreleased v0.2 Codex development boundary
+## v0.2 Codex preview boundary
 
-Codex support is development work for an unreleased v0.2 and is not covered by
-the supported-version statement above. Its reader is limited to the explicitly
-configured local Codex home, the pinned Codex CLI version, and the fixed
+Codex support is included in the v0.2 developer preview. Its reader is limited
+to the explicitly configured local Codex home, Codex CLI `0.145.0`, and the fixed
 `state_5.sqlite` source. Cockpit prepares a disposable snapshot by opening that
 database with `SQLITE_OPEN_READONLY`, `fileMustExist`, and `query_only`.
 
@@ -67,7 +67,7 @@ available.
 
 The temporary credential-free `HOME`, fixed environment allowlist, scrubbed
 snapshot paths, and directly owned process groups are defense-in-depth controls,
-not an OS capability sandbox. The unreleased reader therefore trusts the exact
+not an OS capability sandbox. The preview reader therefore trusts the exact
 pinned Codex executable and retains the v0.1 loopback-only, single-user,
 non-elevated operating model. Untrusted executables, remote App Servers,
 multi-user service, elevated execution, or cloud deployment require a new

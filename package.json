@@ -1,6 +1,6 @@
 {
   "name": "cockpit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A local, read-only dashboard for your agents.",
   "license": "MIT",
   "private": true,
