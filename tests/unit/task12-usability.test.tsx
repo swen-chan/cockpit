@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ConversationBrowser } from "@/features/conversations/conversation-browser";
 import { FileBrowser } from "@/features/files/file-browser";
@@ -39,15 +39,20 @@ function stubStackedLayout(matches = true) {
 }
 
 describe("Task 12 usability closure", () => {
+  beforeEach(() => {
+    window.history.replaceState({}, "", "/agents/hermes");
+  });
+
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    window.history.replaceState({}, "", "/");
   });
 
   it("moves keyboard focus into newly selected details only in stacked layouts", () => {
     stubStackedLayout();
 
-    const { unmount } = render(<SystemBrowser sources={mockSystemSources} />);
+    const { unmount } = render(<SystemBrowser panelId="hermes" sources={mockSystemSources} />);
     fireEvent.click(screen.getByRole("button", { name: /Memory.*Durable context/is }));
     expect(screen.getByRole("heading", { name: "Memory", level: 2 })).toHaveFocus();
     expect(window.matchMedia).toHaveBeenCalledWith("(max-width: 767px)");
@@ -65,7 +70,7 @@ describe("Task 12 usability closure", () => {
 
   it("does not steal focus from the selected control in the wide layout", () => {
     stubStackedLayout(false);
-    render(<SystemBrowser sources={mockSystemSources} />);
+    render(<SystemBrowser panelId="hermes" sources={mockSystemSources} />);
 
     const sourceButton = screen.getByRole("button", { name: /Memory.*Durable context/is });
     sourceButton.focus();
@@ -86,7 +91,13 @@ describe("Task 12 usability closure", () => {
       nextCursor: "cursor-fixture",
       observedAt: "2026-09-07T00:00:00.000Z",
     };
-    render(<ConversationBrowser initialPage={page} initialConversation={mockConversations[0]!} />);
+    render(
+      <ConversationBrowser
+        panelId="hermes"
+        initialPage={page}
+        initialConversation={mockConversations[0]!}
+      />,
+    );
 
     const paginationNote = screen.getByText(
       "2 sessions loaded. Load older eligible sessions as needed.",
@@ -108,6 +119,7 @@ describe("Task 12 usability closure", () => {
     );
     render(
       <ConversationBrowser
+        panelId="hermes"
         initialPage={{
           items: mockConversations.slice(0, 2).map(asConversationSummary),
           nextCursor: "cursor-fixture",
@@ -136,14 +148,19 @@ describe("Task 12 usability closure", () => {
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
-          items: [nextConversation],
-          nextCursor: null,
-          observedAt: "2026-09-07T00:00:00.000Z",
+          panelId: "hermes",
+          runtime: "hermes",
+          data: {
+            items: [nextConversation],
+            nextCursor: null,
+            observedAt: "2026-09-07T00:00:00.000Z",
+          },
         }),
       }),
     );
     render(
       <ConversationBrowser
+        panelId="hermes"
         initialPage={{
           items: mockConversations.slice(0, 2).map(asConversationSummary),
           nextCursor: "cursor-fixture",
@@ -178,6 +195,7 @@ describe("Task 12 usability closure", () => {
     );
     render(
       <FileBrowser
+        panelId="hermes"
         initialDirectory={{
           path: "",
           parentPath: null,
@@ -206,6 +224,7 @@ describe("Task 12 usability closure", () => {
   it("shows an initial root failure only in the directory pane", () => {
     render(
       <FileBrowser
+        panelId="hermes"
         initialDirectory={{
           path: "",
           parentPath: null,
@@ -245,6 +264,7 @@ describe("Task 12 usability closure", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("synthetic failure")));
     render(
       <FileBrowser
+        panelId="hermes"
         initialDirectory={{
           path: "",
           parentPath: null,
@@ -269,6 +289,7 @@ describe("Task 12 usability closure", () => {
   it("keeps the initial directory usable when only its first preview fails", () => {
     render(
       <FileBrowser
+        panelId="hermes"
         initialDirectory={{
           path: "",
           parentPath: null,
@@ -320,7 +341,7 @@ describe("Task 12 usability closure", () => {
     let resolveDirectory!: (response: MockResponse) => void;
     let resolveFile!: (response: MockResponse) => void;
     const fetchMock = vi.fn().mockImplementation((input: string) => {
-      if (input.startsWith("/api/files?")) {
+      if (input.startsWith("/api/agents/hermes/files?")) {
         return new Promise<MockResponse>((resolve) => {
           resolveDirectory = resolve;
         });
@@ -332,6 +353,7 @@ describe("Task 12 usability closure", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(
       <FileBrowser
+        panelId="hermes"
         initialDirectory={{
           path: "",
           parentPath: null,
@@ -352,18 +374,26 @@ describe("Task 12 usability closure", () => {
       resolveDirectory({
         ok: true,
         json: async () => ({
-          path: "docs",
-          parentPath: "",
-          items: [nestedFile],
-          observedAt: "2026-09-08T00:00:00.000Z",
-          truncated: false,
+          panelId: "hermes",
+          runtime: "hermes",
+          data: {
+            path: "docs",
+            parentPath: "",
+            items: [nestedFile],
+            observedAt: "2026-09-08T00:00:00.000Z",
+            truncated: false,
+          },
         }),
       });
     });
     await act(async () => {
       resolveFile({
         ok: true,
-        json: async () => ({ ...mockFiles[0]!, content: "Latest file preview." }),
+        json: async () => ({
+          panelId: "hermes",
+          runtime: "hermes",
+          data: { ...mockFiles[0]!, content: "Latest file preview." },
+        }),
       });
     });
 
@@ -400,16 +430,21 @@ describe("Task 12 usability closure", () => {
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
-          path: "docs",
-          parentPath: "",
-          items: [nestedFile],
-          observedAt: "2026-09-08T00:00:00.000Z",
-          truncated: false,
+          panelId: "hermes",
+          runtime: "hermes",
+          data: {
+            path: "docs",
+            parentPath: "",
+            items: [nestedFile],
+            observedAt: "2026-09-08T00:00:00.000Z",
+            truncated: false,
+          },
         }),
       }),
     );
     render(
       <FileBrowser
+        panelId="hermes"
         initialDirectory={{
           path: "",
           parentPath: null,
@@ -432,9 +467,16 @@ describe("Task 12 usability closure", () => {
   it("moves focus to a selected file preview and makes long text keyboard-scrollable", async () => {
     stubStackedLayout();
     const textFile = { ...mockFiles[0]!, kind: "Text", content: "Bounded text preview." };
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => textFile }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ panelId: "hermes", runtime: "hermes", data: textFile }),
+      }),
+    );
     render(
       <FileBrowser
+        panelId="hermes"
         initialDirectory={{
           path: "",
           parentPath: null,
@@ -464,7 +506,7 @@ describe("Task 12 usability closure", () => {
       },
       metadata: [{ label: "Modified", value: "2026-08-22T07:51:00.000Z", mono: true }],
     };
-    render(<SystemBrowser sources={[source]} />);
+    render(<SystemBrowser panelId="hermes" sources={[source]} />);
 
     expect(screen.getByText("2026-08-22 15:51 CST")).toBeInTheDocument();
     expect(

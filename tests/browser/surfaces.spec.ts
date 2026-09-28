@@ -6,11 +6,11 @@ import {
 } from "../helpers/hermes-fixture";
 
 const routes = [
-  { href: "/", title: "Overview" },
-  { href: "/system", title: "System" },
-  { href: "/conversations", title: "Conversations" },
-  { href: "/files", title: "Files" },
-  { href: "/jobs", title: "Jobs" },
+  { href: "/agents/hermes", title: "Overview" },
+  { href: "/agents/hermes/system", title: "System" },
+  { href: "/agents/hermes/conversations", title: "Conversations" },
+  { href: "/agents/hermes/files", title: "Files" },
+  { href: "/agents/hermes/jobs", title: "Jobs" },
 ] as const;
 
 interface SafetyObservation {
@@ -108,7 +108,7 @@ test.afterEach(async ({ page }) => {
 test("navigates all five read-only surfaces and exposes the Overview destinations", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/agents/hermes");
   const navigation = page.getByRole("navigation", { name: "Primary navigation" });
   const overview = page.locator(".overview-grid");
 
@@ -119,7 +119,7 @@ test("navigates all five read-only surfaces and exposes the Overview destination
   }
 
   for (const { href, title } of routes) {
-    if (href !== "/") {
+    if (href !== "/agents/hermes") {
       await navigation.getByRole("link", { name: title, exact: true }).click();
       await expect(page).toHaveURL(href);
     }
@@ -137,7 +137,7 @@ test("navigates all five read-only surfaces and exposes the Overview destination
 });
 
 test("selects and searches a System document", async ({ page }) => {
-  await page.goto("/system");
+  await page.goto("/agents/hermes/system");
   const memory = page.getByRole("button", { name: /Memory.*Durable context/is });
 
   await memory.focus();
@@ -166,7 +166,7 @@ test("selects and searches a System document", async ({ page }) => {
 
 test("paginates, selects, and searches Conversations at a narrow width", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
-  await page.goto("/conversations");
+  await page.goto("/agents/hermes/conversations");
   const conversationRegion = page.getByRole("region", { name: "Eligible conversations" });
 
   await expect(conversationRegion.locator(".conversation-row")).toHaveCount(5);
@@ -189,7 +189,7 @@ test("paginates, selects, and searches Conversations at a narrow width", async (
 
 test("navigates, searches, and distinguishes file states at a narrow width", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
-  await page.goto("/files");
+  await page.goto("/agents/hermes/files");
 
   await page.getByRole("button", { name: /nested.*Directory/is }).click();
   await expect(page.getByLabel("Current workspace directory nested")).toBeVisible();
@@ -216,7 +216,7 @@ test("navigates, searches, and distinguishes file states at a narrow width", asy
 
 test("selects the second Job and keeps table overflow inside its region", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
-  await page.goto("/jobs");
+  await page.goto("/agents/hermes/jobs");
   const tableRegion = page.getByRole("region", { name: "Scheduled jobs table" });
 
   await page.getByRole("button", { name: "Synthetic job 2", exact: true }).click();

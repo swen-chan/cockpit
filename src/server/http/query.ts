@@ -8,26 +8,15 @@ import { parseRelativePath } from "@/server/security/path-policy";
 
 const maxQueryParameters = 4;
 const maxQueryKeyCharacters = 32;
-const opaqueConversationId = /^conversation-[A-Za-z0-9_-]+$/u;
-const opaqueCursor = /^cursor-[A-Za-z0-9_-]+$/u;
 const scopedTaskId = /^task-[A-Za-z0-9_-]+$/u;
 const scopedCursor = /^cursor-[A-Za-z0-9_-]+$/u;
 const opaqueSkillId = /^skill-[a-f0-9]{24}$/u;
 const noQueryKeys = new Set<string>();
-const conversationPageQueryKeys = new Set(["cursor", "limit"]);
+const conversationPageQueryKeys = new Set(["cursor"]);
 const pathQueryKeys = new Set(["path"]);
 const skillQueryKeys = new Set(["id"]);
 
 const emptyQuerySchema = z.object({}).strict();
-const conversationPageQuerySchema = z
-  .object({
-    cursor: z.string().min(1).max(500).regex(opaqueCursor).optional(),
-    limit: z
-      .string()
-      .regex(/^(?:[1-9]|1[0-9]|2[0-5])$/u)
-      .optional(),
-  })
-  .strict();
 const scopedConversationPageQuerySchema = z
   .object({
     cursor: z.string().min(1).max(6_000).regex(scopedCursor).optional(),
@@ -48,7 +37,6 @@ const skillQuerySchema = z
     id: z.string().regex(opaqueSkillId),
   })
   .strict();
-const conversationIdSchema = z.string().min(1).max(500).regex(opaqueConversationId);
 const scopedTaskIdSchema = z.string().min(1).max(6_000).regex(scopedTaskId);
 
 function queryRecord(request: Request, allowedKeys: ReadonlySet<string>): Record<string, string> {
@@ -81,24 +69,6 @@ function parseQuery<T>(
 
 export function assertNoQuery(request: Request): void {
   parseQuery(request, emptyQuerySchema, noQueryKeys);
-}
-
-export function parseConversationPageQuery(request: Request): {
-  cursor: string | null;
-  limit: number;
-} {
-  const parsed = parseQuery(request, conversationPageQuerySchema, conversationPageQueryKeys);
-  return {
-    cursor: parsed.cursor ?? null,
-    limit: parsed.limit === undefined ? 5 : Number(parsed.limit),
-  };
-}
-
-export function parseConversationRequest(request: Request, id: string): string {
-  assertNoQuery(request);
-  const parsed = conversationIdSchema.safeParse(id);
-  if (!parsed.success) throw new SourceSecurityError("invalid_path");
-  return parsed.data;
 }
 
 export function parseScopedConversationPageQuery(request: Request): {

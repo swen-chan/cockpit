@@ -5,6 +5,7 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { scopedSuccessSchema } from "@/contracts/agents";
 import { jobsSnapshotSchema } from "@/contracts/source-result";
 import { readJobDefinitions, readRecentJobExecutions } from "@/server/adapters/jobs";
 import type { HermesContext } from "@/server/config/hermes-context";
@@ -449,14 +450,25 @@ describe("jobs adapters", () => {
     writeFileSync(manifestPath, JSON.stringify(privateManifest));
     vi.stubEnv("COCKPIT_HERMES_HOME", home);
     vi.stubEnv("COCKPIT_SOURCE_MANIFEST", manifestPath);
+    vi.stubEnv("COCKPIT_WORKSPACE_ROOT", home);
+    for (const key of [
+      "COCKPIT_SOURCE_PRESET",
+      "COCKPIT_CODEX_HOME",
+      "COCKPIT_CODEX_WORKSPACE_ROOT",
+      "COCKPIT_CODEX_CUSTOM_GUIDANCE",
+      "COCKPIT_DEFAULT_PANEL",
+    ])
+      vi.stubEnv(key, "");
 
-    const route = await import("@/app/api/jobs/route");
-    const response = await route.GET(new Request("http://127.0.0.1:3000/api/jobs"));
+    const route = await import("@/app/api/agents/[panelId]/jobs/route");
+    const response = await route.GET(new Request("http://127.0.0.1:3000/api/agents/hermes/jobs"), {
+      params: Promise.resolve({ panelId: "hermes" }),
+    });
     const payload = await response.json();
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(response.headers.get("access-control-allow-origin")).toBeNull();
-    expect(jobsSnapshotSchema.safeParse(payload).success).toBe(true);
+    expect(scopedSuccessSchema(jobsSnapshotSchema).safeParse(payload).success).toBe(true);
     expect(JSON.stringify(payload)).not.toContain("PRIVATE PROMPT");
   });
 });

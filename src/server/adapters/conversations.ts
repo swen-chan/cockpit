@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import path from "node:path";
 
 import type {
@@ -24,12 +24,6 @@ type DatabaseReader = <T>(
   options: { protectedSourceRoots: readonly string[] },
 ) => Promise<T>;
 
-interface PrivateIdentity {
-  rawId: string;
-  time: number;
-  version: 1;
-}
-
 export interface ConversationCursorIdentity {
   rawId: string;
   time: number;
@@ -44,7 +38,7 @@ export interface ConversationIdentityCodec {
 
 export interface ConversationReadOptions {
   databaseReader?: DatabaseReader;
-  identityCodec?: ConversationIdentityCodec;
+  identityCodec: ConversationIdentityCodec;
 }
 
 interface ConversationSchema {
@@ -97,7 +91,6 @@ interface MessageRow {
 
 const defaultPageSize = 5;
 const maxPageSize = 25;
-const maxCursorCharacters = 500;
 const maxPreviewCharacters = 160;
 const maxMessageCharacters = 20_000;
 const maxTranscriptCharacters = 100_000;
@@ -202,92 +195,6 @@ function activityExpression(schema: ConversationSchema): string {
   ), s.${schema.startedAt})`;
 }
 
-function identityKey(context: HermesContext, manifest: ConversationManifest): Buffer {
-  return createHash("sha256")
-    .update(
-      JSON.stringify({
-        database: manifest.databaseRelativePath,
-        home: context.home,
-        id: manifest.sessionColumns.id,
-        namespace: "cockpit-conversation-token-v1",
-        table: manifest.sessionTable,
-      }),
-    )
-    .digest();
-}
-
-function encodeIdentity(
-  prefix: "conversation" | "cursor",
-  rawId: string,
-  time: number,
-  key: Buffer,
-): string {
-  const initializationVector = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", key, initializationVector);
-  const payload: PrivateIdentity = { rawId, time, version: 1 };
-  const encrypted = Buffer.concat([cipher.update(JSON.stringify(payload), "utf8"), cipher.final()]);
-  return `${prefix}-${Buffer.concat([initializationVector, cipher.getAuthTag(), encrypted]).toString("base64url")}`;
-}
-
-function decodeIdentity(
-  value: string,
-  prefix: "conversation" | "cursor",
-  key: Buffer,
-): PrivateIdentity {
-  if (
-    typeof value !== "string" ||
-    value.length < prefix.length + 2 ||
-    value.length > maxCursorCharacters
-  ) {
-    throw new SourceSecurityError("invalid_path");
-  }
-  const marker = `${prefix}-`;
-  if (!value.startsWith(marker)) throw new SourceSecurityError("invalid_path");
-  try {
-    const token = Buffer.from(value.slice(marker.length), "base64url");
-    if (token.length < 29) throw new Error("invalid identity");
-    const decipher = createDecipheriv("aes-256-gcm", key, token.subarray(0, 12));
-    decipher.setAuthTag(token.subarray(12, 28));
-    const decrypted = Buffer.concat([
-      decipher.update(token.subarray(28)),
-      decipher.final(),
-    ]).toString("utf8");
-    const parsed: unknown = JSON.parse(decrypted);
-    if (typeof parsed !== "object" || parsed === null) throw new Error("invalid identity");
-    const candidate = parsed as Partial<PrivateIdentity>;
-    if (
-      candidate.version !== 1 ||
-      typeof candidate.time !== "number" ||
-      !Number.isFinite(candidate.time) ||
-      candidate.time <= 0 ||
-      typeof candidate.rawId !== "string" ||
-      candidate.rawId.length < 1 ||
-      candidate.rawId.length > 200
-    ) {
-      throw new Error("invalid identity");
-    }
-    return { rawId: candidate.rawId, time: candidate.time, version: 1 };
-  } catch {
-    throw new SourceSecurityError("invalid_path");
-  }
-}
-
-function legacyIdentityCodec(
-  context: HermesContext,
-  manifest: ConversationManifest,
-): ConversationIdentityCodec {
-  const key = identityKey(context, manifest);
-  return Object.freeze({
-    encodeTask: (rawId: string, time: number) => encodeIdentity("conversation", rawId, time, key),
-    decodeTask: (value: string) => decodeIdentity(value, "conversation", key).rawId,
-    encodeCursor: (rawId: string, time: number) => encodeIdentity("cursor", rawId, time, key),
-    decodeCursor: (value: string) => {
-      const identity = decodeIdentity(value, "cursor", key);
-      return { rawId: identity.rawId, time: identity.time };
-    },
-  });
-}
-
 function safeCount(value: number | null): number {
   return Number.isSafeInteger(value) && (value ?? -1) >= 0 ? (value ?? 0) : 0;
 }
@@ -366,15 +273,15 @@ function conversationSelect(schema: ConversationSchema): string {
 export async function readConversationPage(
   context: HermesContext,
   manifest: ConversationManifest,
+  options: ConversationReadOptions,
   cursor: string | null = null,
   limit: number = defaultPageSize,
   now: Date = new Date(),
-  options: ConversationReadOptions = {},
 ): Promise<ConversationPage> {
   if (!Number.isInteger(limit) || limit < 1 || limit > maxPageSize) {
     throw new SourceSecurityError("invalid_path");
   }
-  const identityCodec = options.identityCodec ?? legacyIdentityCodec(context, manifest);
+  const identityCodec = options.identityCodec;
   const cursorIdentity = cursor ? identityCodec.decodeCursor(cursor) : null;
   const databasePath = path.join(context.home, ...parseRelativePath(manifest.databaseRelativePath));
   return (options.databaseReader ?? withReadOnlyDatabase)(
@@ -489,9 +396,9 @@ export async function readConversationTranscript(
   context: HermesContext,
   manifest: ConversationManifest,
   requestedId: string,
-  options: ConversationReadOptions = {},
+  options: ConversationReadOptions,
 ): Promise<Conversation> {
-  const identityCodec = options.identityCodec ?? legacyIdentityCodec(context, manifest);
+  const identityCodec = options.identityCodec;
   const rawId = identityCodec.decodeTask(requestedId);
   const databasePath = path.join(context.home, ...parseRelativePath(manifest.databaseRelativePath));
   return (options.databaseReader ?? withReadOnlyDatabase)(

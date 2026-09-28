@@ -96,25 +96,13 @@ function exactKeys(value, keys) {
   );
 }
 
-function safeString(value, limit) {
-  return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= limit &&
-    !/[\x00-\x1f\x7f]/.test(value)
-  );
-}
-
 function validProcess(record) {
   return (
-    exactKeys(record, ["pid", "pgid", "executableIdentity", "startToken"]) &&
+    exactKeys(record, ["pid", "pgid"]) &&
     Number.isSafeInteger(record.pid) &&
     record.pid > 1 &&
     record.pid <= 2_147_483_647 &&
-    record.pgid === record.pid &&
-    safeString(record.executableIdentity, 256) &&
-    /^\d+:\d+:\d+$/.test(record.executableIdentity) &&
-    safeString(record.startToken, 256)
+    record.pgid === record.pid
   );
 }
 

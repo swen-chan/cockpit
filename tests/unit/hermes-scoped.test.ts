@@ -1,5 +1,3 @@
-import path from "node:path";
-
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createPanelTokenCodec, type PanelTokenScope } from "@/server/panels/opaque-token";
@@ -58,7 +56,6 @@ describe("scoped Hermes service inputs", () => {
       COCKPIT_WORKSPACE_ROOT: fixture.workspace,
       COCKPIT_SOURCE_PRESET: "hermes-v2026.9.11",
       COCKPIT_HERMES_HOME: fixture.home,
-      COCKPIT_CODEX_HOME: path.join(fixture.root, "codex-home"),
     });
 
     const conversations = scopedHermesConversationOptions(panel);
@@ -124,20 +121,11 @@ describe("scoped Hermes service inputs", () => {
     });
   });
 
-  it("keeps an explicit legacy fallback while still panel-binding scoped history tokens", () => {
-    const panel = hermesPanel({});
-    const conversations = scopedHermesConversationOptions(panel);
-
-    expect(scopedHermesSystemOptions(panel)).toEqual({});
-    expect(scopedHermesJobsOptions(panel)).toEqual({});
-    expect(scopedHermesSkillOptions(panel)).toEqual({});
-    expect(scopedHermesFilesOptions(panel)).toEqual({});
-    expect(Object.keys(conversations)).toEqual(["identityCodec"]);
-    expect(conversations.identityCodec.encodeTask("synthetic-id", 1)).toMatch(/^task-/u);
-  });
-
   it("uses raw task IDs only and a strict rawId/time cursor payload", () => {
-    const panel = hermesPanel({});
+    const panel = hermesPanel({
+      COCKPIT_WORKSPACE_ROOT: `${missingRoot}/workspace`,
+      COCKPIT_SOURCE_PRESET: "hermes-v2026.9.11",
+    });
     const tokens = createPanelTokenCodec(new Uint8Array(32).fill(21));
     const identity = createScopedHermesConversationIdentityCodec(panel, tokens);
     const panelScope = scope(panel);
@@ -167,14 +155,13 @@ describe("scoped Hermes service inputs", () => {
     }
   });
 
-  it("round-trips scoped task and cursor tokens while leaving legacy tokens unchanged", async () => {
+  it("round-trips panel-bound task and cursor tokens for Hermes alone", async () => {
     const fixture = createHermesFixture("cockpit-hermes-scoped-history-");
     fixtures.push(fixture);
     const panel = hermesPanel({
       COCKPIT_WORKSPACE_ROOT: fixture.workspace,
       COCKPIT_SOURCE_PRESET: "hermes-v2026.9.11",
       COCKPIT_HERMES_HOME: fixture.home,
-      COCKPIT_CODEX_HOME: path.join(fixture.root, "codex-home"),
     });
     const tokens = createPanelTokenCodec(new Uint8Array(32).fill(22));
     const options = scopedHermesConversationOptions(panel, tokens);
@@ -194,12 +181,6 @@ describe("scoped Hermes service inputs", () => {
     const detail = await loadConversationTranscript(first.items[0]!.id, options);
     expect(detail.id).toBe(first.items[0]!.id);
     expect(detail.messages.map((message) => message.role)).toEqual(["user", "tool", "assistant"]);
-
-    const legacy = await loadConversationPage(null, 1, {
-      environment: fixture.environment,
-      platformRoot: fixture.home,
-    });
-    expect(legacy.items[0]?.id).toMatch(/^conversation-/u);
   });
 
   it("rejects forged scoped selectors before resolving a missing home, manifest, or database", async () => {

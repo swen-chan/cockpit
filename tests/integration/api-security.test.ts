@@ -2,16 +2,16 @@ import { copyFileSync, mkdirSync, readdirSync, realpathSync, rmSync, writeFileSy
 import path from "node:path";
 
 import Database from "better-sqlite3";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import * as conversationRoute from "@/app/api/conversations/[id]/route";
-import * as conversationsRoute from "@/app/api/conversations/route";
-import * as filePreviewRoute from "@/app/api/files/preview/route";
-import * as filesRoute from "@/app/api/files/route";
-import * as jobsRoute from "@/app/api/jobs/route";
-import * as overviewRoute from "@/app/api/overview/route";
-import * as systemContextRoute from "@/app/api/system/context/route";
-import * as systemRoute from "@/app/api/system/route";
+import * as conversationRoute from "@/app/api/agents/[panelId]/conversations/[id]/route";
+import * as conversationsRoute from "@/app/api/agents/[panelId]/conversations/route";
+import * as filePreviewRoute from "@/app/api/agents/[panelId]/files/preview/route";
+import * as filesRoute from "@/app/api/agents/[panelId]/files/route";
+import * as jobsRoute from "@/app/api/agents/[panelId]/jobs/route";
+import * as overviewRoute from "@/app/api/agents/[panelId]/overview/route";
+import * as systemContextRoute from "@/app/api/agents/[panelId]/system/context/route";
+import * as systemRoute from "@/app/api/agents/[panelId]/system/route";
 import {
   conversationPageSchema,
   conversationSchema,
@@ -22,6 +22,8 @@ import {
   workspaceDirectorySchema,
   workspaceFileSchema,
 } from "@/contracts/source-result";
+import { z } from "zod";
+import { scopedSuccessSchema } from "@/contracts/agents";
 import { HERMES_SOURCE_PRESET_ID, resolveSourceManifest } from "@/server/config/source-manifest";
 import {
   assertHermesFixtureSourcesUnchanged,
@@ -52,11 +54,24 @@ async function readSafeJson(response: Response): Promise<unknown> {
   expect(
     [...response.headers.keys()].filter((key) => key.startsWith("access-control-allow-")),
   ).toEqual([]);
-  return response.json() as Promise<unknown>;
+  const envelope = scopedSuccessSchema(z.unknown()).parse(await response.json());
+  expect(envelope.panelId).toBe("hermes");
+  expect(envelope.runtime).toBe("hermes");
+  return envelope.data;
 }
 
 describe("GET API security boundary with synthetic local sources", () => {
   const fixtures: HermesFixture[] = [];
+
+  beforeEach(() => {
+    for (const key of [
+      "COCKPIT_CODEX_HOME",
+      "COCKPIT_CODEX_WORKSPACE_ROOT",
+      "COCKPIT_CODEX_CUSTOM_GUIDANCE",
+      "COCKPIT_DEFAULT_PANEL",
+    ])
+      vi.stubEnv(key, "");
+  });
 
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -74,10 +89,18 @@ describe("GET API security boundary with synthetic local sources", () => {
 
     try {
       const overview = overviewSnapshotSchema.parse(
-        await readSafeJson(await overviewRoute.GET(new Request(`${base}/api/overview`))),
+        await readSafeJson(
+          await overviewRoute.GET(new Request(`${base}/api/agents/hermes/overview`), {
+            params: Promise.resolve({ panelId: "hermes" }),
+          }),
+        ),
       );
       const system = systemSnapshotSchema.parse(
-        await readSafeJson(await systemRoute.GET(new Request(`${base}/api/system`))),
+        await readSafeJson(
+          await systemRoute.GET(new Request(`${base}/api/agents/hermes/system`), {
+            params: Promise.resolve({ panelId: "hermes" }),
+          }),
+        ),
       );
       const skillId = system.sources.find((source) => source.collection?.kind === "skills")
         ?.collection?.items[0]?.id;
@@ -85,14 +108,19 @@ describe("GET API security boundary with synthetic local sources", () => {
       const systemContext = systemSourceSchema.parse(
         await readSafeJson(
           await systemContextRoute.GET(
-            new Request(`${base}/api/system/context?id=${encodeURIComponent(skillId!)}`),
+            new Request(
+              `${base}/api/agents/hermes/system/context?id=${encodeURIComponent(skillId!)}`,
+            ),
+            { params: Promise.resolve({ panelId: "hermes" }) },
           ),
         ),
       );
 
       const conversations = conversationPageSchema.parse(
         await readSafeJson(
-          await conversationsRoute.GET(new Request(`${base}/api/conversations?limit=5`)),
+          await conversationsRoute.GET(new Request(`${base}/api/agents/hermes/conversations`), {
+            params: Promise.resolve({ panelId: "hermes" }),
+          }),
         ),
       );
       expect(conversations.items).toHaveLength(5);
@@ -101,8 +129,9 @@ describe("GET API security boundary with synthetic local sources", () => {
         await readSafeJson(
           await conversationsRoute.GET(
             new Request(
-              `${base}/api/conversations?limit=5&cursor=${encodeURIComponent(conversations.nextCursor!)}`,
+              `${base}/api/agents/hermes/conversations?cursor=${encodeURIComponent(conversations.nextCursor!)}`,
             ),
+            { params: Promise.resolve({ panelId: "hermes" }) },
           ),
         ),
       );
@@ -111,36 +140,54 @@ describe("GET API security boundary with synthetic local sources", () => {
       expect(olderConversations.nextCursor).toBeNull();
 
       const conversationId = conversations.items[0]?.id;
-      expect(conversationId).toMatch(/^conversation-/u);
+      expect(conversationId).toMatch(/^task-/u);
       const conversation = conversationSchema.parse(
         await readSafeJson(
           await conversationRoute.GET(
-            new Request(`${base}/api/conversations/${encodeURIComponent(conversationId!)}`),
-            { params: Promise.resolve({ id: conversationId! }) },
+            new Request(
+              `${base}/api/agents/hermes/conversations/${encodeURIComponent(conversationId!)}`,
+            ),
+            { params: Promise.resolve({ panelId: "hermes", id: conversationId! }) },
           ),
         ),
       );
 
       const rootFiles = workspaceDirectorySchema.parse(
-        await readSafeJson(await filesRoute.GET(new Request(`${base}/api/files`))),
+        await readSafeJson(
+          await filesRoute.GET(new Request(`${base}/api/agents/hermes/files`), {
+            params: Promise.resolve({ panelId: "hermes" }),
+          }),
+        ),
       );
       const nestedFiles = workspaceDirectorySchema.parse(
-        await readSafeJson(await filesRoute.GET(new Request(`${base}/api/files?path=nested`))),
+        await readSafeJson(
+          await filesRoute.GET(new Request(`${base}/api/agents/hermes/files?path=nested`), {
+            params: Promise.resolve({ panelId: "hermes" }),
+          }),
+        ),
       );
       const file = workspaceFileSchema.parse(
         await readSafeJson(
-          await filePreviewRoute.GET(new Request(`${base}/api/files/preview?path=docs%2Fnotes.md`)),
+          await filePreviewRoute.GET(
+            new Request(`${base}/api/agents/hermes/files/preview?path=docs%2Fnotes.md`),
+            { params: Promise.resolve({ panelId: "hermes" }) },
+          ),
         ),
       );
       const nestedFile = workspaceFileSchema.parse(
         await readSafeJson(
           await filePreviewRoute.GET(
-            new Request(`${base}/api/files/preview?path=nested%2Fnotes.md`),
+            new Request(`${base}/api/agents/hermes/files/preview?path=nested%2Fnotes.md`),
+            { params: Promise.resolve({ panelId: "hermes" }) },
           ),
         ),
       );
       const jobs = jobsSnapshotSchema.parse(
-        await readSafeJson(await jobsRoute.GET(new Request(`${base}/api/jobs`))),
+        await readSafeJson(
+          await jobsRoute.GET(new Request(`${base}/api/agents/hermes/jobs`), {
+            params: Promise.resolve({ panelId: "hermes" }),
+          }),
+        ),
       );
 
       const canonicalHome = realpathSync(fixture.home);
@@ -255,11 +302,17 @@ describe("GET API security boundary with synthetic local sources", () => {
     try {
       const conversations = conversationPageSchema.parse(
         await readSafeJson(
-          await conversationsRoute.GET(new Request(`${base}/api/conversations?limit=5`)),
+          await conversationsRoute.GET(new Request(`${base}/api/agents/hermes/conversations`), {
+            params: Promise.resolve({ panelId: "hermes" }),
+          }),
         ),
       );
       const system = systemSnapshotSchema.parse(
-        await readSafeJson(await systemRoute.GET(new Request(`${base}/api/system`))),
+        await readSafeJson(
+          await systemRoute.GET(new Request(`${base}/api/agents/hermes/system`), {
+            params: Promise.resolve({ panelId: "hermes" }),
+          }),
+        ),
       );
       const prompt = system.sources.find((source) => source.id === "prompt");
       expect(conversations.items).toHaveLength(5);
@@ -305,14 +358,6 @@ describe("GET API security boundary with synthetic local sources", () => {
       "agents/[panelId]/overview/route.ts",
       "agents/[panelId]/system/context/route.ts",
       "agents/[panelId]/system/route.ts",
-      "conversations/[id]/route.ts",
-      "conversations/route.ts",
-      "files/preview/route.ts",
-      "files/route.ts",
-      "jobs/route.ts",
-      "overview/route.ts",
-      "system/context/route.ts",
-      "system/route.ts",
     ]);
   });
 

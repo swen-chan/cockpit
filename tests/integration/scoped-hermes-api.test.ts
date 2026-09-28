@@ -91,12 +91,18 @@ describe("scoped Agent APIs with synthetic Hermes sources", () => {
     }
   });
 
-  it("serves every Hermes surface in a strict panel envelope without leaking or mutating sources", async () => {
+  it("serves every Hermes surface without Codex configuration, leaking or mutating sources", async () => {
     const fixture = createHermesFixture("cockpit-scoped-api-hermes-");
-    const codexWorkspace = mkdtempSync(path.join(tmpdir(), "cockpit-scoped-api-codex-"));
     fixtures.push(fixture);
-    temporaryRoots.push(codexWorkspace);
-    configureDualPanels(fixture, codexWorkspace);
+    for (const key of [
+      "COCKPIT_SOURCE_MANIFEST",
+      "COCKPIT_DEFAULT_PANEL",
+      "COCKPIT_CODEX_HOME",
+      "COCKPIT_CODEX_WORKSPACE_ROOT",
+      "COCKPIT_CODEX_CUSTOM_GUIDANCE",
+    ])
+      vi.stubEnv(key, "");
+    for (const [name, value] of Object.entries(fixture.environment)) vi.stubEnv(name, value);
     const sourceSnapshot = snapshotHermesFixtureSources(fixture);
 
     try {

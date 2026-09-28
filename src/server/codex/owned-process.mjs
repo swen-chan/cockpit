@@ -243,8 +243,6 @@ export async function runOwnedProcess({
     await owner?.recordProcess({
       pid: pgid,
       pgid,
-      executableIdentity: `${info.dev}:${info.ino}:${info.size}`,
-      startToken: String(performance.now()),
     });
     if (signal?.aborted) abort();
     if (!failure) onStart(api);

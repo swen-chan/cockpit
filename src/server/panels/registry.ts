@@ -10,10 +10,10 @@ import {
   type AgentSurface,
   type PublicAgentPanel,
 } from "@/contracts/agents";
+import { HERMES_SOURCE_PRESET_ID } from "@/server/config/source-manifest";
 import { SourceSecurityError } from "@/server/security/errors";
 import { parseRelativePath } from "@/server/security/path-policy";
 
-export type PanelMode = "legacySingleHermes" | "scopedCodexOnly" | "scopedDual";
 export type PanelAdapterVersion = "hermes-v1" | "codex-0.145.0";
 
 interface PanelBase {
@@ -29,16 +29,13 @@ export interface HermesPanelDescriptor extends PanelBase {
   readonly name: "Hermes";
   readonly runtime: "hermes";
   readonly adapterVersion: "hermes-v1";
-  readonly configuration:
-    | { readonly mode: "legacy" }
-    | {
-        readonly mode: "scoped";
-        readonly workspaceRoot: string;
-        readonly source:
-          | { readonly kind: "preset"; readonly value: string }
-          | { readonly kind: "manifest"; readonly value: string };
-        readonly explicitHome?: string;
-      };
+  readonly configuration: {
+    readonly workspaceRoot: string;
+    readonly source:
+      | { readonly kind: "preset"; readonly value: string }
+      | { readonly kind: "manifest"; readonly value: string };
+    readonly explicitHome?: string;
+  };
 }
 
 export interface CodexPanelDescriptor extends PanelBase {
@@ -56,11 +53,31 @@ export interface CodexPanelDescriptor extends PanelBase {
 export type AgentPanelDescriptor = HermesPanelDescriptor | CodexPanelDescriptor;
 
 export interface PanelRegistry {
-  readonly mode: PanelMode;
+  readonly state: "ready";
   readonly panels: readonly AgentPanelDescriptor[];
   readonly publicPanels: readonly PublicAgentPanel[];
   readonly defaultPanelId: AgentPanelId;
 }
+
+const CONFIGURATION_KEYS = [
+  "COCKPIT_CODEX_HOME",
+  "COCKPIT_CODEX_WORKSPACE_ROOT",
+  "COCKPIT_CODEX_CUSTOM_GUIDANCE",
+  "COCKPIT_DEFAULT_PANEL",
+  "COCKPIT_WORKSPACE_ROOT",
+  "COCKPIT_SOURCE_PRESET",
+  "COCKPIT_SOURCE_MANIFEST",
+  "COCKPIT_HERMES_HOME",
+] as const;
+export type PanelConfigurationKey = (typeof CONFIGURATION_KEYS)[number] | "HERMES_HOME";
+export type PanelConfigurationState =
+  | { readonly state: "unconfigured" }
+  | {
+      readonly state: "invalid";
+      readonly key: PanelConfigurationKey;
+      readonly requirement: string;
+    };
+export type PanelRegistryResult = PanelRegistry | PanelConfigurationState;
 
 const HERMES_SURFACES = Object.freeze<AgentSurface[]>([
   "overview",
@@ -77,42 +94,13 @@ const CODEX_FILES_SURFACES = Object.freeze<AgentSurface[]>([
   "files",
 ]);
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/u;
-const PRESET_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/u;
 const MAX_PATH_CHARACTERS = 4_096;
 
-function configuredValue(
-  environment: Readonly<Record<string, string | undefined>>,
-  key: string,
-  maximum = MAX_PATH_CHARACTERS,
-): string | undefined {
-  const raw = environment[key];
-  if (raw === undefined) return undefined;
-  if (raw === "") return undefined;
-  if (raw.length > maximum || CONTROL_CHARACTERS.test(raw) || raw !== raw.trim()) {
-    throw new SourceSecurityError("source_malformed");
-  }
-  return raw;
-}
-
-function absolutePath(value: string): string {
-  if (!path.isAbsolute(value) || path.normalize(value) === path.parse(value).root) {
-    throw new SourceSecurityError("source_malformed");
-  }
-  return value;
-}
-
-function manifestPath(value: string): string {
-  return absolutePath(value);
-}
-
-function relativeGuidance(value: string): string {
-  try {
-    const segments = parseRelativePath(value);
-    if (segments.length === 0) throw new Error();
-    return value;
-  } catch {
-    throw new SourceSecurityError("source_malformed");
-  }
+function invalidConfiguration(
+  key: PanelConfigurationKey,
+  requirement: string,
+): Extract<PanelConfigurationState, { state: "invalid" }> {
+  return Object.freeze({ state: "invalid", key, requirement });
 }
 
 function publicPanel(panel: AgentPanelDescriptor): PublicAgentPanel {
@@ -125,126 +113,177 @@ function publicPanel(panel: AgentPanelDescriptor): PublicAgentPanel {
   return Object.freeze({ ...parsed, surfaces: Object.freeze(parsed.surfaces) });
 }
 
-function legacyHermes(): HermesPanelDescriptor {
-  return Object.freeze({
-    id: "hermes",
-    name: "Hermes",
-    runtime: "hermes",
-    adapterVersion: "hermes-v1",
-    surfaces: HERMES_SURFACES,
-    configuration: Object.freeze({ mode: "legacy" }),
-  });
-}
-
-function scopedHermes(
-  workspaceRoot: string,
-  preset: string | undefined,
-  manifest: string | undefined,
-  explicitHome: string | undefined,
-): HermesPanelDescriptor {
-  if (Boolean(preset) === Boolean(manifest)) throw new SourceSecurityError("source_malformed");
-  const source = preset
-    ? { kind: "preset" as const, value: PRESET_ID.test(preset) ? preset : "" }
-    : { kind: "manifest" as const, value: manifestPath(manifest ?? "") };
-  if (!source.value) throw new SourceSecurityError("source_malformed");
-  const configuration = Object.freeze({
-    mode: "scoped" as const,
-    workspaceRoot: absolutePath(workspaceRoot),
-    source: Object.freeze(source),
-    ...(explicitHome ? { explicitHome: absolutePath(explicitHome) } : {}),
-  });
-  return Object.freeze({
-    id: "hermes",
-    name: "Hermes",
-    runtime: "hermes",
-    adapterVersion: "hermes-v1",
-    surfaces: HERMES_SURFACES,
-    configuration,
-  });
-}
-
-function codexPanel(
-  home: string,
-  workspaceRoot: string | undefined,
-  customGuidance: string | undefined,
-): CodexPanelDescriptor {
-  if (customGuidance && !workspaceRoot) throw new SourceSecurityError("source_malformed");
-  const configuration = Object.freeze({
-    home: absolutePath(home),
-    ...(workspaceRoot ? { workspaceRoot: absolutePath(workspaceRoot) } : {}),
-    ...(customGuidance ? { customGuidance: relativeGuidance(customGuidance) } : {}),
-  });
-  return Object.freeze({
-    id: "codex",
-    name: "Codex",
-    runtime: "codex",
-    adapterVersion: "codex-0.145.0",
-    surfaces: workspaceRoot ? CODEX_FILES_SURFACES : CODEX_SURFACES,
-    configuration,
-  });
-}
-
 export function resolvePanelRegistry(
   environment: Readonly<Record<string, string | undefined>> = process.env,
-): PanelRegistry {
-  const codexHome = configuredValue(environment, "COCKPIT_CODEX_HOME");
-  const codexWorkspace = configuredValue(environment, "COCKPIT_CODEX_WORKSPACE_ROOT");
-  const customGuidance = configuredValue(environment, "COCKPIT_CODEX_CUSTOM_GUIDANCE");
-  const configuredDefault = configuredValue(environment, "COCKPIT_DEFAULT_PANEL", 16);
-
-  if (!codexHome) {
-    if (codexWorkspace || customGuidance) throw new SourceSecurityError("source_malformed");
-    if (configuredDefault && configuredDefault !== "hermes")
-      throw new SourceSecurityError("source_malformed");
-    const hermes = legacyHermes();
-    return Object.freeze({
-      mode: "legacySingleHermes",
-      panels: Object.freeze([hermes]),
-      publicPanels: Object.freeze([publicPanel(hermes)]),
-      defaultPanelId: "hermes",
-    });
+): PanelRegistryResult {
+  const values: Partial<Record<PanelConfigurationKey, string>> = {};
+  for (const key of CONFIGURATION_KEYS) {
+    const raw = environment[key];
+    if (raw === undefined || raw === "") continue;
+    const maximum =
+      key === "COCKPIT_SOURCE_PRESET"
+        ? 100
+        : key === "COCKPIT_DEFAULT_PANEL"
+          ? 16
+          : MAX_PATH_CHARACTERS;
+    if (raw.length > maximum || CONTROL_CHARACTERS.test(raw) || raw !== raw.trim()) {
+      return invalidConfiguration(
+        key,
+        `Use at most ${maximum} characters, without surrounding whitespace or control characters.`,
+      );
+    }
+    values[key] = raw;
   }
 
-  const hermesWorkspace = configuredValue(environment, "COCKPIT_WORKSPACE_ROOT");
-  const hermesPreset = configuredValue(environment, "COCKPIT_SOURCE_PRESET", 100);
-  const hermesManifest = configuredValue(environment, "COCKPIT_SOURCE_MANIFEST");
-  const cockpitHermesHome = configuredValue(environment, "COCKPIT_HERMES_HOME");
+  const codexHome = values.COCKPIT_CODEX_HOME;
+  const codexWorkspace = values.COCKPIT_CODEX_WORKSPACE_ROOT;
+  const customGuidance = values.COCKPIT_CODEX_CUSTOM_GUIDANCE;
+  const hermesWorkspace = values.COCKPIT_WORKSPACE_ROOT;
+  const hermesPreset = values.COCKPIT_SOURCE_PRESET;
+  const hermesManifest = values.COCKPIT_SOURCE_MANIFEST;
   const hasHermesConfiguration = Boolean(
-    hermesWorkspace || hermesPreset || hermesManifest || cockpitHermesHome,
+    hermesWorkspace || hermesPreset || hermesManifest || values.COCKPIT_HERMES_HOME,
   );
-  // HERMES_HOME is an existing Hermes fallback, not a panel activation flag.
-  // Capture only the selected value after Hermes is explicitly configured so
-  // scoped readers can stay independent of the ambient process environment.
-  const hermesHome = hasHermesConfiguration
-    ? (cockpitHermesHome ?? configuredValue(environment, "HERMES_HOME"))
-    : undefined;
-  const panels: AgentPanelDescriptor[] = [];
-  if (hasHermesConfiguration) {
-    if (!hermesWorkspace) throw new SourceSecurityError("source_malformed");
-    panels.push(scopedHermes(hermesWorkspace, hermesPreset, hermesManifest, hermesHome));
+  if (hasHermesConfiguration && !values.COCKPIT_HERMES_HOME && environment.HERMES_HOME) {
+    const raw = environment.HERMES_HOME;
+    if (raw.length > MAX_PATH_CHARACTERS || CONTROL_CHARACTERS.test(raw) || raw !== raw.trim()) {
+      return invalidConfiguration(
+        "HERMES_HOME",
+        "Use at most 4096 characters, without surrounding whitespace or control characters.",
+      );
+    }
+    values.HERMES_HOME = raw;
   }
-  panels.push(codexPanel(codexHome, codexWorkspace, customGuidance));
+  for (const key of [
+    "COCKPIT_CODEX_HOME",
+    "COCKPIT_CODEX_WORKSPACE_ROOT",
+    "COCKPIT_WORKSPACE_ROOT",
+    "COCKPIT_SOURCE_MANIFEST",
+    "COCKPIT_HERMES_HOME",
+    "HERMES_HOME",
+  ] as const) {
+    const value = values[key];
+    if (value && (!path.isAbsolute(value) || path.normalize(value) === path.parse(value).root)) {
+      return invalidConfiguration(key, "Use an absolute path other than the filesystem root.");
+    }
+  }
+  if (!codexHome && (codexWorkspace || customGuidance)) {
+    return invalidConfiguration(
+      "COCKPIT_CODEX_HOME",
+      "Set the Codex home before configuring its workspace or guidance.",
+    );
+  }
+  if (customGuidance && !codexWorkspace) {
+    return invalidConfiguration(
+      "COCKPIT_CODEX_WORKSPACE_ROOT",
+      "Set an approved workspace before configuring custom guidance.",
+    );
+  }
+  if (customGuidance) {
+    try {
+      if (parseRelativePath(customGuidance).length === 0) {
+        return invalidConfiguration(
+          "COCKPIT_CODEX_CUSTOM_GUIDANCE",
+          "Use a nonempty relative file path inside the approved Codex workspace.",
+        );
+      }
+    } catch (error) {
+      if (!(error instanceof SourceSecurityError)) throw error;
+      return invalidConfiguration(
+        "COCKPIT_CODEX_CUSTOM_GUIDANCE",
+        "Use a nonempty relative file path inside the approved Codex workspace.",
+      );
+    }
+  }
+  if (hasHermesConfiguration && !hermesWorkspace) {
+    return invalidConfiguration(
+      "COCKPIT_WORKSPACE_ROOT",
+      "Set an approved workspace for the Hermes panel.",
+    );
+  }
+  if (hasHermesConfiguration && Boolean(hermesPreset) === Boolean(hermesManifest)) {
+    return invalidConfiguration(
+      "COCKPIT_SOURCE_PRESET",
+      "Set exactly one of COCKPIT_SOURCE_PRESET and COCKPIT_SOURCE_MANIFEST.",
+    );
+  }
+  if (hermesPreset && hermesPreset !== HERMES_SOURCE_PRESET_ID) {
+    return invalidConfiguration(
+      "COCKPIT_SOURCE_PRESET",
+      `Use ${HERMES_SOURCE_PRESET_ID}, or configure COCKPIT_SOURCE_MANIFEST instead.`,
+    );
+  }
 
-  const requestedDefault =
-    configuredDefault === undefined
-      ? undefined
-      : agentPanelIdSchema.safeParse(configuredDefault).data;
-  if (configuredDefault && !requestedDefault) throw new SourceSecurityError("source_malformed");
-  if (requestedDefault && !panels.some((panel) => panel.id === requestedDefault)) {
-    throw new SourceSecurityError("source_malformed");
+  const panels: AgentPanelDescriptor[] = [];
+  const hermesSource = hermesPreset
+    ? { kind: "preset" as const, value: hermesPreset }
+    : hermesManifest
+      ? { kind: "manifest" as const, value: hermesManifest }
+      : undefined;
+  if (hermesWorkspace && hermesSource) {
+    const explicitHome = values.COCKPIT_HERMES_HOME ?? values.HERMES_HOME;
+    panels.push(
+      Object.freeze({
+        id: "hermes",
+        name: "Hermes",
+        runtime: "hermes",
+        adapterVersion: "hermes-v1",
+        surfaces: HERMES_SURFACES,
+        configuration: Object.freeze({
+          workspaceRoot: hermesWorkspace,
+          source: Object.freeze(hermesSource),
+          ...(explicitHome ? { explicitHome } : {}),
+        }),
+      }),
+    );
   }
-  const defaultPanelId =
-    requestedDefault ?? (panels.some((panel) => panel.id === "hermes") ? "hermes" : "codex");
-  const frozenPanels = Object.freeze([...panels]);
+  if (codexHome) {
+    panels.push(
+      Object.freeze({
+        id: "codex",
+        name: "Codex",
+        runtime: "codex",
+        adapterVersion: "codex-0.145.0",
+        surfaces: codexWorkspace ? CODEX_FILES_SURFACES : CODEX_SURFACES,
+        configuration: Object.freeze({
+          home: codexHome,
+          ...(codexWorkspace ? { workspaceRoot: codexWorkspace } : {}),
+          ...(customGuidance ? { customGuidance } : {}),
+        }),
+      }),
+    );
+  }
+  const configuredDefault = values.COCKPIT_DEFAULT_PANEL;
+  const requestedDefault = agentPanelIdSchema.safeParse(configuredDefault).data;
+  if (
+    configuredDefault &&
+    (!requestedDefault || !panels.some((panel) => panel.id === requestedDefault))
+  ) {
+    return invalidConfiguration(
+      "COCKPIT_DEFAULT_PANEL",
+      "Choose a configured panel: hermes or codex.",
+    );
+  }
+  const firstPanel = panels[0];
+  if (!firstPanel) return Object.freeze({ state: "unconfigured" });
+  const frozenPanels = Object.freeze(panels);
   return Object.freeze({
-    mode: hasHermesConfiguration ? "scopedDual" : "scopedCodexOnly",
+    state: "ready",
     panels: frozenPanels,
     publicPanels: Object.freeze(frozenPanels.map(publicPanel)),
-    defaultPanelId,
+    defaultPanelId: requestedDefault ?? firstPanel.id,
   });
 }
 
-export function resolvePanel(registry: PanelRegistry, requestedId: string): AgentPanelDescriptor {
+export function resolvePanel(
+  registry: PanelRegistryResult,
+  requestedId: string,
+): AgentPanelDescriptor {
+  if (registry.state !== "ready") {
+    throw new SourceSecurityError(
+      registry.state === "unconfigured" ? "missing_source" : "source_malformed",
+    );
+  }
   const parsed = agentPanelIdSchema.safeParse(requestedId);
   const panel = parsed.success
     ? registry.panels.find((candidate) => candidate.id === parsed.data)
@@ -265,11 +304,4 @@ export function chooseInitialPanelId(
   return parsed.success && registry.panels.some((panel) => panel.id === parsed.data)
     ? parsed.data
     : registry.defaultPanelId;
-}
-
-export function resolveLegacyHermesPanel(registry: PanelRegistry): HermesPanelDescriptor {
-  if (registry.mode !== "legacySingleHermes") throw new SourceSecurityError("panel_required");
-  const panel = registry.panels[0];
-  if (panel?.runtime !== "hermes") throw new SourceSecurityError("source_malformed");
-  return panel;
 }

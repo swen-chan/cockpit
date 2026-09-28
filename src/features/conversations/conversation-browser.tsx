@@ -15,8 +15,6 @@ import { cn } from "@/lib/cn";
 import { isCurrentPanelLocation, parseScopedPayload, scopedApiPath } from "@/lib/scoped-client";
 import { formatShanghaiTime } from "@/lib/time";
 
-const PAGE_SIZE = 5;
-
 export function ConversationBrowser({
   initialConversation,
   initialFailure,
@@ -26,7 +24,7 @@ export function ConversationBrowser({
   initialConversation: Conversation | null;
   initialFailure?: string | undefined;
   initialPage: ConversationPage;
-  panelId?: AgentPanelId | undefined;
+  panelId: AgentPanelId;
 }) {
   const [conversations, setConversations] = useState<ConversationSummary[]>(initialPage.items);
   const [nextCursor, setNextCursor] = useState(initialPage.nextCursor);
@@ -87,19 +85,18 @@ export function ConversationBrowser({
     setTranscriptState("loading");
     setQuery("");
     try {
-      const endpoint = panelId
-        ? scopedApiPath(panelId, `/conversations/${encodeURIComponent(conversation.id)}`)
-        : `/api/conversations/${encodeURIComponent(conversation.id)}`;
+      const endpoint = scopedApiPath(
+        panelId,
+        `/conversations/${encodeURIComponent(conversation.id)}`,
+      );
       const response = await fetch(endpoint, {
         cache: "no-store",
         signal: controller.signal,
       });
       const payload: unknown = await response.json();
-      const parsed = panelId
-        ? parseScopedPayload(payload, panelId, conversationSchema)
-        : conversationSchema.safeParse(payload).data;
+      const parsed = parseScopedPayload(payload, panelId, conversationSchema);
       if (!response.ok || !parsed) throw new Error("invalid conversation transcript");
-      if (!controller.signal.aborted && (!panelId || isCurrentPanelLocation(panelId))) {
+      if (!controller.signal.aborted && isCurrentPanelLocation(panelId)) {
         setSelectedConversation(parsed);
         setTranscriptState("idle");
       }
@@ -115,16 +112,15 @@ export function ConversationBrowser({
     pageRequest.current = controller;
     setPageState("loading");
     try {
-      const endpoint = panelId
-        ? scopedApiPath(panelId, `/conversations?cursor=${encodeURIComponent(nextCursor)}`)
-        : `/api/conversations?cursor=${encodeURIComponent(nextCursor)}&limit=${PAGE_SIZE}`;
+      const endpoint = scopedApiPath(
+        panelId,
+        `/conversations?cursor=${encodeURIComponent(nextCursor)}`,
+      );
       const response = await fetch(endpoint, { cache: "no-store", signal: controller.signal });
       const payload: unknown = await response.json();
-      const parsed = panelId
-        ? parseScopedPayload(payload, panelId, conversationPageSchema)
-        : conversationPageSchema.safeParse(payload).data;
+      const parsed = parseScopedPayload(payload, panelId, conversationPageSchema);
       if (!response.ok || !parsed) throw new Error("invalid conversation page");
-      if (controller.signal.aborted || (panelId && !isCurrentPanelLocation(panelId))) return;
+      if (controller.signal.aborted || !isCurrentPanelLocation(panelId)) return;
       setConversations((current) => {
         const known = new Set(current.map((item) => item.id));
         return [...current, ...parsed.items.filter((item) => !known.has(item.id))];
@@ -133,7 +129,7 @@ export function ConversationBrowser({
       setNextCursor(parsed.nextCursor);
       setPageState("idle");
     } catch {
-      if (!controller.signal.aborted && (!panelId || isCurrentPanelLocation(panelId))) {
+      if (!controller.signal.aborted && isCurrentPanelLocation(panelId)) {
         setPageState("error");
       }
     }

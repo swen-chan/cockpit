@@ -250,7 +250,6 @@ async function runCase(command, kind, activeSource) {
     host.once("error", () => resolve(null));
   });
   const receive = privatePeer(host);
-  const nodeIdentity = await fs.stat(await fs.realpath(process.execPath), { bigint: true });
   const hostIdentity = await processIdentity(host.pid);
   assert(
     hostIdentity?.pid === host.pid &&
@@ -262,8 +261,6 @@ async function runCase(command, kind, activeSource) {
   owner.recordProcess({
     pid: host.pid,
     pgid: host.pid,
-    executableIdentity: `${nodeIdentity.dev}:${nodeIdentity.ino}:${nodeIdentity.size}`,
-    startToken: hostIdentity.start,
   });
   let hostBytes = 0;
   for (const stream of [host.stdout, host.stderr])

@@ -61,7 +61,6 @@ describe("scoped route responses", () => {
   });
 
   it("maps safe codes without turning source absence into a universal 404", async () => {
-    expect(statusForScopedFailure("panel_required")).toBe(400);
     expect(statusForScopedFailure("invalid_path")).toBe(400);
     expect(statusForScopedFailure("invalid_panel")).toBe(404);
     expect(statusForScopedFailure("unsupported_capability")).toBe(404);

@@ -21,7 +21,7 @@ function proxiedRequest(
     headers.set("sec-fetch-mode", fetchMetadata.mode);
     headers.set("sec-fetch-site", fetchMetadata.site);
   }
-  return new NextRequest("http://127.0.0.1:3000/api/jobs", { headers });
+  return new NextRequest("http://127.0.0.1:3000/api/agents/hermes/jobs", { headers });
 }
 
 describe("local HTTP security boundary", () => {

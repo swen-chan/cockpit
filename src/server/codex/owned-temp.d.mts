@@ -1,8 +1,6 @@
 export interface OwnedProcess {
   pid: number;
   pgid: number;
-  executableIdentity: string;
-  startToken: string;
 }
 
 export interface OwnedTemp {

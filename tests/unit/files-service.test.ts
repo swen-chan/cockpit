@@ -4,6 +4,7 @@ import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { scopedSuccessSchema } from "@/contracts/agents";
 import { workspaceDirectorySchema, workspaceFileSchema } from "@/contracts/source-result";
 import {
   loadFilesPageData,
@@ -114,6 +115,15 @@ describe("workspace files GET routes", () => {
     root = mkdtempSync(path.join(tmpdir(), "cockpit-files-route-"));
     writeFileSync(path.join(root, "route.txt"), "route fixture");
     vi.stubEnv("COCKPIT_WORKSPACE_ROOT", root);
+    vi.stubEnv("COCKPIT_SOURCE_PRESET", "hermes-v2026.9.11");
+    for (const key of [
+      "COCKPIT_SOURCE_MANIFEST",
+      "COCKPIT_CODEX_HOME",
+      "COCKPIT_CODEX_WORKSPACE_ROOT",
+      "COCKPIT_CODEX_CUSTOM_GUIDANCE",
+      "COCKPIT_DEFAULT_PANEL",
+    ])
+      vi.stubEnv(key, "");
   });
 
   afterEach(() => {
@@ -122,27 +132,35 @@ describe("workspace files GET routes", () => {
   });
 
   it("returns strict no-store directory and preview responses", async () => {
-    const directoryRoute = await import("@/app/api/files/route");
-    const previewRoute = await import("@/app/api/files/preview/route");
+    const directoryRoute = await import("@/app/api/agents/[panelId]/files/route");
+    const previewRoute = await import("@/app/api/agents/[panelId]/files/preview/route");
     const directoryResponse = await directoryRoute.GET(
-      new Request("http://127.0.0.1/api/files?path="),
+      new Request("http://127.0.0.1/api/agents/hermes/files?path="),
+      { params: Promise.resolve({ panelId: "hermes" }) },
     );
     const previewResponse = await previewRoute.GET(
-      new Request("http://127.0.0.1/api/files/preview?path=route.txt"),
+      new Request("http://127.0.0.1/api/agents/hermes/files/preview?path=route.txt"),
+      { params: Promise.resolve({ panelId: "hermes" }) },
     );
 
     expect(directoryResponse.status).toBe(200);
     expect(directoryResponse.headers.get("cache-control")).toBe("private, no-store");
-    expect(workspaceDirectorySchema.safeParse(await directoryResponse.json()).success).toBe(true);
+    expect(
+      scopedSuccessSchema(workspaceDirectorySchema).safeParse(await directoryResponse.json())
+        .success,
+    ).toBe(true);
     expect(previewResponse.status).toBe(200);
     expect(previewResponse.headers.get("cache-control")).toBe("private, no-store");
-    expect(workspaceFileSchema.safeParse(await previewResponse.json()).success).toBe(true);
+    expect(
+      scopedSuccessSchema(workspaceFileSchema).safeParse(await previewResponse.json()).success,
+    ).toBe(true);
   });
 
   it("rejects traversal before it reaches workspace content", async () => {
-    const directoryRoute = await import("@/app/api/files/route");
+    const directoryRoute = await import("@/app/api/agents/[panelId]/files/route");
     const response = await directoryRoute.GET(
-      new Request("http://127.0.0.1/api/files?path=..%2Foutside"),
+      new Request("http://127.0.0.1/api/agents/hermes/files?path=..%2Foutside"),
+      { params: Promise.resolve({ panelId: "hermes" }) },
     );
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ code: "invalid_path", sourceId: "workspace" });

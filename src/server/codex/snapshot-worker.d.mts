@@ -36,7 +36,7 @@ export function createSnapshot(
   options?: {
     signal?: AbortSignal;
     /** Synthetic test seam. Production callers never supply this callback. */
-    onPhase?: (phase: "before-source-postflight") => void | Promise<void>;
+    onPhase?: (phase: "after-backup") => void | Promise<void>;
   },
 ): Promise<SnapshotResult>;
 

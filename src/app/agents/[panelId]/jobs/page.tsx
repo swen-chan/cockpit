@@ -17,7 +17,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function AgentJobsPage({ params }: Props) {
   const { panelId } = await params;
-  const { panel, supported } = requireScopedPage(panelId, "jobs");
+  const context = requireScopedPage(panelId, "jobs");
+  if (context.state !== "ready") return null;
+  const { panel, supported } = context;
   if (!supported || panel.runtime !== "hermes") {
     return <UnsupportedSurface panel={panel} surface="jobs" />;
   }

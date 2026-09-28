@@ -19,7 +19,7 @@ import { assertSourceReadAllowed } from "@/server/security/prerender-guard";
 
 export interface LoadConversationOptions {
   environment?: Readonly<Record<string, string | undefined>>;
-  identityCodec?: ConversationIdentityCodec;
+  identityCodec: ConversationIdentityCodec;
   manifest?: PrivateSourceManifest;
   now?: Date;
   platformRoot?: string;
@@ -50,42 +50,37 @@ function resolveSource(options: LoadConversationOptions): {
 }
 
 export async function loadConversationPage(
-  cursor: string | null = null,
-  limit: number = 5,
-  options: LoadConversationOptions = {},
+  cursor: string | null,
+  limit: number,
+  options: LoadConversationOptions,
 ): Promise<ConversationPage> {
-  if (cursor !== null && options.identityCodec) {
+  if (cursor !== null) {
     options.identityCodec.decodeCursor(cursor);
   }
   const source = resolveSource(options);
   return readConversationPage(
     source.context,
     source.manifest.conversation,
+    { identityCodec: options.identityCodec },
     cursor,
     limit,
     options.now ?? new Date(),
-    options.identityCodec ? { identityCodec: options.identityCodec } : {},
   );
 }
 
 export async function loadConversationTranscript(
   requestedId: string,
-  options: LoadConversationOptions = {},
+  options: LoadConversationOptions,
 ): Promise<Conversation> {
-  if (options.identityCodec) {
-    options.identityCodec.decodeTask(requestedId);
-  }
+  options.identityCodec.decodeTask(requestedId);
   const source = resolveSource(options);
-  return readConversationTranscript(
-    source.context,
-    source.manifest.conversation,
-    requestedId,
-    options.identityCodec ? { identityCodec: options.identityCodec } : {},
-  );
+  return readConversationTranscript(source.context, source.manifest.conversation, requestedId, {
+    identityCodec: options.identityCodec,
+  });
 }
 
 export async function loadConversationPageData(
-  options: LoadConversationOptions = {},
+  options: LoadConversationOptions,
 ): Promise<ConversationPageData> {
   assertSourceReadAllowed();
   const now = options.now ?? new Date();

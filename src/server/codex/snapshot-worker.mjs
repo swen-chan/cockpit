@@ -1,6 +1,5 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
 import { constants } from "node:fs";
 import { lstat, open, realpath, unlink } from "node:fs/promises";
 import path from "node:path";
@@ -76,133 +75,16 @@ async function optionalRegularOwned(filename, ownerUid, maximum) {
   }
 }
 
-async function digestStableFile(filename, expected, ownerUid, maximum, checkWork) {
-  let handle;
-  try {
-    handle = await open(filename, constants.O_RDONLY | constants.O_NOFOLLOW);
-    const opened = await handle.stat({ bigint: true });
-    if (!sameStableFile(expected, opened)) throw fail("source_busy");
-    const digest = createHash("sha256");
-    const buffer = Buffer.allocUnsafe(1024 * 1024);
-    let offset = 0;
-    while (offset < Number(opened.size)) {
-      checkWork();
-      const requested = Math.min(buffer.length, Number(opened.size) - offset);
-      const { bytesRead } = await handle.read(buffer, 0, requested, offset);
-      if (bytesRead !== requested) throw fail("source_busy");
-      digest.update(buffer.subarray(0, bytesRead));
-      offset += bytesRead;
-    }
-    const after = await handle.stat({ bigint: true });
-    const named = await regularOwned(filename, ownerUid, maximum);
-    if (!sameStableFile(opened, after) || !sameStableFile(after, named)) throw fail("source_busy");
-    return digest.digest("hex");
-  } catch (error) {
-    if (error?.code === "ENOENT") throw fail("source_busy");
-    throw error;
-  } finally {
-    await handle?.close();
-  }
-}
-
-async function preflight(sourceDatabase, ownerUid, checkWork) {
-  const mainStat = await regularOwned(sourceDatabase, ownerUid, CODEX_LIMITS.databaseBytes);
-  const walStat = await optionalRegularOwned(
+async function preflight(sourceDatabase, ownerUid) {
+  const main = await regularOwned(sourceDatabase, ownerUid, CODEX_LIMITS.databaseBytes);
+  const wal = await optionalRegularOwned(
     `${sourceDatabase}-wal`,
     ownerUid,
     CODEX_LIMITS.databaseBytes,
   );
-  const shmStat = await optionalRegularOwned(
-    `${sourceDatabase}-shm`,
-    ownerUid,
-    CODEX_LIMITS.shmBytes,
-  );
-  if (mainStat.size + (walStat?.size ?? 0n) > BigInt(CODEX_LIMITS.databaseBytes)) {
+  await optionalRegularOwned(`${sourceDatabase}-shm`, ownerUid, CODEX_LIMITS.shmBytes);
+  if (main.size + (wal?.size ?? 0n) > BigInt(CODEX_LIMITS.databaseBytes)) {
     throw fail("source_too_large");
-  }
-  const main = Object.freeze({
-    stat: mainStat,
-    digest: await digestStableFile(
-      sourceDatabase,
-      mainStat,
-      ownerUid,
-      CODEX_LIMITS.databaseBytes,
-      checkWork,
-    ),
-  });
-  const wal =
-    walStat === null
-      ? Object.freeze({ state: "missing" })
-      : walStat.size === 0n
-        ? Object.freeze({ state: "empty", stat: walStat })
-        : Object.freeze({
-            state: "nonempty",
-            stat: walStat,
-            digest: await digestStableFile(
-              `${sourceDatabase}-wal`,
-              walStat,
-              ownerUid,
-              CODEX_LIMITS.databaseBytes,
-              checkWork,
-            ),
-          });
-  const shm =
-    shmStat === null
-      ? Object.freeze({ state: "missing" })
-      : Object.freeze({ state: "present", stat: shmStat });
-  return Object.freeze({ main, wal, shm });
-}
-
-async function postflight(sourceDatabase, ownerUid, before, checkWork, { content = true } = {}) {
-  try {
-    checkWork();
-    const main = await regularOwned(sourceDatabase, ownerUid, CODEX_LIMITS.databaseBytes);
-    if (!sameStableFile(before.main.stat, main)) throw fail("source_busy");
-    if (
-      content &&
-      (await digestStableFile(
-        sourceDatabase,
-        main,
-        ownerUid,
-        CODEX_LIMITS.databaseBytes,
-        checkWork,
-      )) !== before.main.digest
-    )
-      throw fail("source_busy");
-
-    const wal = await optionalRegularOwned(
-      `${sourceDatabase}-wal`,
-      ownerUid,
-      CODEX_LIMITS.databaseBytes,
-    );
-    if (before.wal.state === "nonempty") {
-      if (wal === null || !sameStableFile(before.wal.stat, wal)) throw fail("source_busy");
-      if (
-        content &&
-        (await digestStableFile(
-          `${sourceDatabase}-wal`,
-          wal,
-          ownerUid,
-          CODEX_LIMITS.databaseBytes,
-          checkWork,
-        )) !== before.wal.digest
-      )
-        throw fail("source_busy");
-    } else if (wal !== null && wal.size !== 0n) throw fail("source_busy");
-    if (main.size + (wal?.size ?? 0n) > BigInt(CODEX_LIMITS.databaseBytes))
-      throw fail("source_too_large");
-
-    const shm = await optionalRegularOwned(
-      `${sourceDatabase}-shm`,
-      ownerUid,
-      CODEX_LIMITS.shmBytes,
-    );
-    if (before.shm.state === "present" && (shm === null || !sameIdentity(before.shm.stat, shm))) {
-      throw fail("source_busy");
-    }
-  } catch (error) {
-    if (error?.code === "ENOENT") throw fail("source_busy");
-    throw error;
   }
 }
 
@@ -393,7 +275,7 @@ export async function createSnapshot(input, { signal, onPhase } = {}) {
     if (typeof process.geteuid !== "function") throw fail("source_unavailable");
     const ownerUid = BigInt(process.geteuid());
     checkWork();
-    const before = await preflight(input.sourceDatabase, ownerUid, checkWork);
+    await preflight(input.sourceDatabase, ownerUid);
     source = new Database(input.sourceDatabase, {
       readonly: true,
       fileMustExist: true,
@@ -402,11 +284,12 @@ export async function createSnapshot(input, { signal, onPhase } = {}) {
     source.pragma("query_only = ON");
     if (!source.readonly || source.pragma("query_only", { simple: true }) !== 1)
       throw fail("source_busy");
-    await postflight(input.sourceDatabase, ownerUid, before, checkWork, { content: false });
+    checkWork();
     assertOwnedTempDirectory(directory);
     await createFile(input.destinationDatabase);
     const pageSize = source.pragma("page_size", { simple: true });
     const sourcePages = source.pragma("page_count", { simple: true });
+    // SQLite keeps the backup consistent while other connections continue writing.
     const backup = await source.backup(input.destinationDatabase, {
       progress({ totalPages }) {
         checkWork();
@@ -417,8 +300,7 @@ export async function createSnapshot(input, { signal, onPhase } = {}) {
     if (sourcePages > 0 && backup.totalPages === 0) throw fail("source_busy");
     source.close();
     source = undefined;
-    await phase("before-source-postflight");
-    await postflight(input.sourceDatabase, ownerUid, before, checkWork);
+    await phase("after-backup");
     checkWork();
     const saved = await regularOwned(
       input.destinationDatabase,

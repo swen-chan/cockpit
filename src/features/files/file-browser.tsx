@@ -29,7 +29,7 @@ export function FileBrowser({
   initialDirectoryFailure?: string | undefined;
   initialFile: WorkspaceFile | null;
   initialPreviewFailure?: string | undefined;
-  panelId?: AgentPanelId | undefined;
+  panelId: AgentPanelId;
 }) {
   const [directory, setDirectory] = useState(initialDirectory);
   const [selectedFile, setSelectedFile] = useState(initialFile);
@@ -87,19 +87,15 @@ export function FileBrowser({
     setPreviewFailure(undefined);
     setQuery("");
     try {
-      const endpoint = panelId
-        ? scopedApiPath(panelId, `/files?path=${encodeURIComponent(relativePath)}`)
-        : `/api/files?path=${encodeURIComponent(relativePath)}`;
+      const endpoint = scopedApiPath(panelId, `/files?path=${encodeURIComponent(relativePath)}`);
       const response = await fetch(endpoint, {
         cache: "no-store",
         signal: controller.signal,
       });
       const payload: unknown = await response.json();
-      const parsed = panelId
-        ? parseScopedPayload(payload, panelId, workspaceDirectorySchema)
-        : workspaceDirectorySchema.safeParse(payload).data;
+      const parsed = parseScopedPayload(payload, panelId, workspaceDirectorySchema);
       if (!response.ok || !parsed) throw new Error("invalid workspace directory");
-      if (!controller.signal.aborted && (!panelId || isCurrentPanelLocation(panelId))) {
+      if (!controller.signal.aborted && isCurrentPanelLocation(panelId)) {
         shouldFocusDirectoryRoot.current = true;
         setDirectory(parsed);
         setHasUsableDirectory(true);
@@ -107,7 +103,7 @@ export function FileBrowser({
         setDirectoryState("idle");
       }
     } catch {
-      if (!controller.signal.aborted && (!panelId || isCurrentPanelLocation(panelId))) {
+      if (!controller.signal.aborted && isCurrentPanelLocation(panelId)) {
         setDirectoryFailure("The selected directory could not be safely loaded.");
         setDirectoryState("error");
       }
@@ -133,24 +129,23 @@ export function FileBrowser({
     previewRequest.current = controller;
     setPreviewState("loading");
     try {
-      const endpoint = panelId
-        ? scopedApiPath(panelId, `/files/preview?path=${encodeURIComponent(entry.path)}`)
-        : `/api/files/preview?path=${encodeURIComponent(entry.path)}`;
+      const endpoint = scopedApiPath(
+        panelId,
+        `/files/preview?path=${encodeURIComponent(entry.path)}`,
+      );
       const response = await fetch(endpoint, {
         cache: "no-store",
         signal: controller.signal,
       });
       const payload: unknown = await response.json();
-      const parsed = panelId
-        ? parseScopedPayload(payload, panelId, workspaceFileSchema)
-        : workspaceFileSchema.safeParse(payload).data;
+      const parsed = parseScopedPayload(payload, panelId, workspaceFileSchema);
       if (!response.ok || !parsed) throw new Error("invalid workspace preview");
-      if (!controller.signal.aborted && (!panelId || isCurrentPanelLocation(panelId))) {
+      if (!controller.signal.aborted && isCurrentPanelLocation(panelId)) {
         setSelectedFile(parsed);
         setPreviewState("idle");
       }
     } catch {
-      if (!controller.signal.aborted && (!panelId || isCurrentPanelLocation(panelId))) {
+      if (!controller.signal.aborted && isCurrentPanelLocation(panelId)) {
         setPreviewFailure("The selected file could not be safely previewed.");
         setPreviewState("error");
       }

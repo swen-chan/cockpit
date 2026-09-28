@@ -1,18 +1,18 @@
 import { expect, test } from "@playwright/test";
 
 const dataEndpoints = [
-  "/api/overview",
-  "/api/system",
-  "/api/system/context?id=skill-abcdef1234567890abcdef12",
-  "/api/conversations",
-  "/api/conversations/conversation-invalid",
-  "/api/files",
-  "/api/files/preview?path=fixture.txt",
-  "/api/jobs",
+  "/api/agents/hermes/overview",
+  "/api/agents/hermes/system",
+  "/api/agents/hermes/system/context?id=skill-abcdef1234567890abcdef12",
+  "/api/agents/hermes/conversations",
+  "/api/agents/hermes/conversations/conversation-invalid",
+  "/api/agents/hermes/files",
+  "/api/agents/hermes/files/preview?path=fixture.txt",
+  "/api/agents/hermes/jobs",
 ] as const;
 
 test("serves the app with restrictive browser headers", async ({ request }) => {
-  const response = await request.get("/");
+  const response = await request.get("/agents/hermes");
   expect(response.status()).toBe(200);
 
   const headers = response.headers();
@@ -40,20 +40,20 @@ test("rejects mutation methods across every data endpoint", async ({ request }) 
 });
 
 test("rejects unapproved Host, Origin, and query input", async ({ request }) => {
-  const badHost = await request.get("/api/jobs", { headers: { Host: "evil.test" } });
+  const badHost = await request.get("/api/agents/hermes/jobs", { headers: { Host: "evil.test" } });
   expect(badHost.status()).toBe(403);
 
-  const badOrigin = await request.get("/api/jobs", {
+  const badOrigin = await request.get("/api/agents/hermes/jobs", {
     headers: { Origin: "https://evil.test" },
   });
   expect(badOrigin.status()).toBe(403);
 
-  const crossSiteSubresource = await request.get("/api/jobs", {
+  const crossSiteSubresource = await request.get("/api/agents/hermes/jobs", {
     headers: { "Sec-Fetch-Mode": "no-cors", "Sec-Fetch-Site": "cross-site" },
   });
   expect(crossSiteSubresource.status()).toBe(403);
 
-  const badQuery = await request.get("/api/jobs?source=/private/source");
+  const badQuery = await request.get("/api/agents/hermes/jobs?source=/private/source");
   expect(badQuery.status()).toBe(400);
   expect(await badQuery.json()).toMatchObject({ sourceId: "jobs", code: "invalid_path" });
   expect(badQuery.headers()["cross-origin-resource-policy"]).toBe("same-origin");

@@ -16,12 +16,7 @@ export function runOwnedProcess(options: {
   home: string;
   app?: boolean;
   owner?: {
-    recordProcess(record: {
-      pid: number;
-      pgid: number;
-      executableIdentity: string;
-      startToken: string;
-    }): void | Promise<unknown>;
+    recordProcess(record: { pid: number; pgid: number }): void | Promise<unknown>;
   };
   signal?: AbortSignal;
   lifetimeMs: number;

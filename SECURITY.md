@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-The latest published `v0.1.x` and `v0.2.x` developer previews receive best-effort
+The latest published `v0.1.x`, `v0.2.x`, and `v0.3.x` developer previews receive best-effort
 security fixes. They are previews, not stable production releases. Untagged
 development snapshots are not supported releases.
 
@@ -18,7 +18,7 @@ agent installation, including Hermes or Codex.
 
 ## Shared local trust model
 
-Cockpit v0.1 and v0.2 are designed for one trusted local operator. Cockpit binds to loopback
+Cockpit developer previews are designed for one trusted local operator. Cockpit binds to loopback
 and inspects fixed server-defined sources through bounded, read-only adapters.
 It must run without elevated privileges; elevated execution is unsupported.
 LAN exposure, port forwarding, tunnels, reverse proxies, cloud hosting, and
@@ -41,12 +41,19 @@ Feature requests, unsupported remote deployments, and behavior already stated
 in the documented local trust model can be filed as regular issues without
 including private data.
 
-## v0.2 Codex preview boundary
+## Codex preview boundary
 
-Codex support is included in the v0.2 developer preview. Its reader is limited
+Codex support was introduced in v0.2 and continues in v0.3. Its reader is limited
 to the explicitly configured local Codex home, Codex CLI `0.145.0`, and the fixed
 `state_5.sqlite` source. Cockpit prepares a disposable snapshot by opening that
 database with `SQLITE_OPEN_READONLY`, `fileMustExist`, and `query_only`.
+
+SQLite's online backup provides a consistent database copy while Codex can
+continue committing changes to its source. Cockpit checks source paths and
+resource limits before opening, then validates the owned copy. It does not
+require the source database or WAL to stay unchanged during the operation.
+Controlled tests without another writer verify that Cockpit preserves source
+content. JSONL rollouts retain their separate stable-copy checks.
 
 `COCKPIT_CODEX_HOME`, `COCKPIT_CODEX_WORKSPACE_ROOT`,
 `COCKPIT_CODEX_CUSTOM_GUIDANCE`, and `COCKPIT_DEFAULT_PANEL` are trusted,

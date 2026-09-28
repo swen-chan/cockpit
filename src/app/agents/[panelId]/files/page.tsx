@@ -17,7 +17,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function AgentFilesPage({ params }: Props) {
   const { panelId } = await params;
-  const { panel, supported } = requireScopedPage(panelId, "files");
+  const context = requireScopedPage(panelId, "files");
+  if (context.state !== "ready") return null;
+  const { panel, supported } = context;
   if (!supported) return <UnsupportedSurface panel={panel} surface="files" />;
   if (panel.runtime === "codex") {
     const workspaceRoot = panel.configuration.workspaceRoot;
