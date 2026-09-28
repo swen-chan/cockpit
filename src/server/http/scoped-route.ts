@@ -23,12 +23,7 @@ export function statusForScopedFailure(
   code: ScopedSafeErrorCode,
   missingSourceStatus: 404 | 503 = 503,
 ): number {
-  if (
-    code === "invalid_path" ||
-    code === "path_outside_root" ||
-    code === "excluded_path" ||
-    code === "panel_required"
-  )
+  if (code === "invalid_path" || code === "path_outside_root" || code === "excluded_path")
     return 400;
   if (code === "invalid_panel" || code === "unsupported_capability") return 404;
   if (code === "missing_source") return missingSourceStatus;

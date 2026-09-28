@@ -17,10 +17,6 @@ import type {
 import { sourceStateForCode } from "@/server/adapters/safe-values";
 import { toSafeDiagnostic } from "@/server/security/errors";
 import { assertSourceReadAllowed } from "@/server/security/prerender-guard";
-import { loadConversationPage } from "@/server/services/conversations";
-import { loadWorkspaceDirectory } from "@/server/services/files";
-import { loadJobsSnapshot } from "@/server/services/jobs";
-import { loadCoreSystemSources, loadProfileForRequest } from "@/server/services/system";
 
 const coreSystemSources = [
   { id: "agents", title: "AGENTS.md" },
@@ -40,7 +36,7 @@ export interface OverviewReaders {
 
 export interface LoadOverviewOptions {
   now?: Date;
-  readers?: Partial<OverviewReaders>;
+  readers: OverviewReaders;
 }
 
 function invoke<T>(reader: () => Promise<T>): Promise<T> {
@@ -259,18 +255,11 @@ function workspaceSection(
 }
 
 export async function loadOverviewSnapshot(
-  options: LoadOverviewOptions = {},
+  options: LoadOverviewOptions,
 ): Promise<OverviewSnapshot> {
   assertSourceReadAllowed();
   const now = options.now ?? new Date();
-  const readers: OverviewReaders = {
-    profile: () => loadProfileForRequest(),
-    conversations: () => loadConversationPage(null, 5),
-    system: () => loadCoreSystemSources(),
-    jobs: () => loadJobsSnapshot(),
-    workspace: () => loadWorkspaceDirectory(""),
-    ...options.readers,
-  };
+  const readers = options.readers;
 
   const [profile, conversations, system, jobs, workspace] = await Promise.allSettled([
     invoke(readers.profile),

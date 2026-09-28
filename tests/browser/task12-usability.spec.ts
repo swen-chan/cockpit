@@ -34,7 +34,7 @@ for (const width of [320, 390]) {
     page,
   }) => {
     await page.setViewportSize({ width, height: 800 });
-    await page.goto("/");
+    await page.goto("/agents/hermes");
     const navigation = page.getByRole("navigation", { name: "Primary navigation" });
     await expect(page.locator(".product-mark")).toContainText("/ HERMES");
 
@@ -60,7 +60,7 @@ for (const width of [320, 390]) {
 
 test("moves keyboard focus into System details only in the stacked layout", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 800 });
-  await page.goto("/system");
+  await page.goto("/agents/hermes/system");
   const sourceRows = page.locator(".index-pane .index-row");
   expect(await sourceRows.count()).toBeGreaterThan(1);
   await sourceRows.nth(1).focus();
@@ -85,7 +85,7 @@ test("moves keyboard focus into System details only in the stacked layout", asyn
 test("keeps secondary and failure text above AA contrast on light and selected dark surfaces", async ({
   page,
 }) => {
-  await page.goto("/system");
+  await page.goto("/agents/hermes/system");
   const colors = await page.evaluate(() => {
     const styles = getComputedStyle(document.documentElement);
     const selectedIndex = document.querySelector<HTMLElement>(".index-row.is-selected .row-index");

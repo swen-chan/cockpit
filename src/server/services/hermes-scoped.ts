@@ -18,8 +18,8 @@ import { SourceSecurityError } from "@/server/security/errors";
 type PrivateEnvironment = Readonly<Record<string, string>>;
 
 export interface ScopedHermesSourceOptions {
-  readonly environment?: PrivateEnvironment;
-  readonly platformRoot?: string;
+  readonly environment: PrivateEnvironment;
+  readonly platformRoot: string;
 }
 
 export interface ScopedHermesConversationOptions extends ScopedHermesSourceOptions {
@@ -27,7 +27,7 @@ export interface ScopedHermesConversationOptions extends ScopedHermesSourceOptio
 }
 
 export interface ScopedHermesFilesOptions {
-  readonly workspaceRoot?: string;
+  readonly workspaceRoot: string;
 }
 
 const MAX_HERMES_RAW_ID_BYTES = 200;
@@ -118,7 +118,7 @@ export function createScopedHermesConversationIdentityCodec(
 
 function scopedConfiguration(panel: HermesPanelDescriptor) {
   assertFixedHermesPanel(panel);
-  return panel.configuration.mode === "scoped" ? panel.configuration : null;
+  return panel.configuration;
 }
 
 function scopedEnvironment(
@@ -126,7 +126,6 @@ function scopedEnvironment(
   options: { source: boolean; workspace: boolean },
 ): ScopedHermesSourceOptions {
   const configuration = scopedConfiguration(panel);
-  if (!configuration) return Object.freeze({});
 
   const environment: Record<string, string> = {};
   if (configuration.explicitHome) environment.COCKPIT_HERMES_HOME = configuration.explicitHome;
@@ -169,5 +168,5 @@ export function scopedHermesSkillOptions(panel: HermesPanelDescriptor): ScopedHe
 
 export function scopedHermesFilesOptions(panel: HermesPanelDescriptor): ScopedHermesFilesOptions {
   const configuration = scopedConfiguration(panel);
-  return Object.freeze(configuration ? { workspaceRoot: configuration.workspaceRoot } : {});
+  return Object.freeze({ workspaceRoot: configuration.workspaceRoot });
 }

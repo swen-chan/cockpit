@@ -2,7 +2,6 @@
 import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
-  appendFileSync,
   chmodSync,
   existsSync,
   lstatSync,
@@ -199,68 +198,121 @@ describe("Codex private online-backup worker", () => {
     expect(fingerprint(`${sourceDatabase}-wal`)).toEqual(walBefore);
   });
 
-  it.each(["main", "nonempty-wal"])(
-    "fails closed when the %s changes before source postflight",
-    async (kind) => {
-      if (kind === "nonempty-wal") {
-        writer = new Database(sourceDatabase);
-        writer.pragma("journal_mode = WAL");
-        writer.pragma("wal_autocheckpoint = 0");
-        writer.prepare("UPDATE threads SET title = ? WHERE id = ?").run("live WAL", firstId);
+  it.each([
+    { journal: "DELETE", checkpoint: false },
+    { journal: "WAL", checkpoint: false },
+    { journal: "WAL", checkpoint: true },
+  ])(
+    "keeps a consistent completed backup when another connection commits afterward ($journal, checkpoint=$checkpoint)",
+    async ({ journal, checkpoint }) => {
+      writer = new Database(sourceDatabase);
+      writer.pragma(`journal_mode = ${journal}`);
+      writer.pragma("wal_autocheckpoint = 0");
+      const rolloutBefore = fingerprint(rollout);
+      const phases: string[] = [];
+      let sourceAfterCommit: ReturnType<typeof fingerprint> | undefined;
+      let walAfterCommit: ReturnType<typeof fingerprint> | undefined;
+      const result = await createSnapshot(input, {
+        onPhase(phase) {
+          phases.push(phase);
+          writer!
+            .prepare("UPDATE threads SET title = ? WHERE id = ?")
+            .run("committed after backup", firstId);
+          if (checkpoint) writer!.pragma("wal_checkpoint(TRUNCATE)");
+          sourceAfterCommit = fingerprint(sourceDatabase);
+          if (existsSync(`${sourceDatabase}-wal`))
+            walAfterCommit = fingerprint(`${sourceDatabase}-wal`);
+        },
+      });
+      expect(result).toEqual({ ok: true });
+      expect(phases).toEqual(["after-backup"]);
+      const copy = new Database(input.destinationDatabase, { readonly: true });
+      try {
+        expect(copy.pragma("integrity_check", { simple: true })).toBe("ok");
+      } finally {
+        copy.close();
       }
-      const filename = kind === "main" ? sourceDatabase : `${sourceDatabase}-wal`;
+      expect(rows()).toEqual([
+        { id: firstId, rollout_path: input.placeholder, title: "synthetic first title" },
+        { id: secondId, rollout_path: input.placeholder, title: "synthetic second title" },
+        { id: missingId, rollout_path: null, title: "synthetic null path" },
+      ]);
       expect(
-        await createSnapshot(input, {
-          onPhase() {
-            appendFileSync(filename, Buffer.from([0x5a]));
-          },
-        }),
-      ).toEqual({ ok: false, code: "source_busy" });
-      noWorkerFiles();
+        writer.prepare("SELECT id, rollout_path, title FROM threads ORDER BY id").all(),
+      ).toEqual([
+        { id: firstId, rollout_path: rollout, title: "committed after backup" },
+        {
+          id: secondId,
+          rollout_path: path.join(sessions, "not-copied.jsonl"),
+          title: "synthetic second title",
+        },
+        { id: missingId, rollout_path: null, title: "synthetic null path" },
+      ]);
+      expect(fingerprint(sourceDatabase)).toEqual(sourceAfterCommit);
+      if (walAfterCommit) expect(fingerprint(`${sourceDatabase}-wal`)).toEqual(walAfterCommit);
+      expect(fingerprint(rollout)).toEqual(rolloutBefore);
     },
   );
 
-  it.each(["missing", "empty"])("rejects a %s WAL becoming non-empty", async (kind) => {
-    const wal = `${sourceDatabase}-wal`;
-    if (kind === "empty") writeFileSync(wal, "", { mode: 0o600 });
-    expect(
-      await createSnapshot(input, {
-        onPhase() {
-          writeFileSync(wal, "unexpected", { mode: 0o600 });
-        },
-      }),
-    ).toEqual({ ok: false, code: "source_busy" });
-    noWorkerFiles();
-  });
-
-  it("rejects deletion of a pre-existing SHM companion", async () => {
+  it("online backup stays consistent when another connection commits between page transfers", async () => {
     writer = new Database(sourceDatabase);
     writer.pragma("journal_mode = WAL");
-    writer.prepare("UPDATE threads SET title = ? WHERE id = ?").run("live SHM", firstId);
-    const shm = `${sourceDatabase}-shm`;
-    expect(existsSync(shm)).toBe(true);
-    expect(
-      await createSnapshot(input, {
-        onPhase() {
-          rmSync(shm);
+    writer.pragma("wal_autocheckpoint = 0");
+    writer.exec("CREATE TABLE padding (data BLOB)");
+    const insert = writer.prepare("INSERT INTO padding VALUES (zeroblob(4096))");
+    writer.transaction(() => {
+      for (let index = 0; index < 220; index += 1) insert.run();
+    })();
+    expect(writer.pragma("page_count", { simple: true })).toBeGreaterThan(100);
+    const originalBackup = Database.prototype.backup;
+    let committedBetweenTransfers = false;
+    let sourceAfterCommit: ReturnType<typeof fingerprint> | undefined;
+    let walAfterCommit: ReturnType<typeof fingerprint> | undefined;
+    const rolloutBefore = fingerprint(rollout);
+    vi.spyOn(Database.prototype, "backup").mockImplementation(function (
+      this: Database.Database,
+      filename,
+      options,
+    ) {
+      return originalBackup.call(this, filename, {
+        ...options,
+        progress(progress) {
+          if (
+            !committedBetweenTransfers &&
+            progress.remainingPages > 0 &&
+            progress.remainingPages < progress.totalPages
+          ) {
+            writer!.transaction(() => {
+              const update = writer!.prepare("UPDATE threads SET title = ? WHERE id = ?");
+              update.run("concurrent first title", firstId);
+              update.run("concurrent second title", secondId);
+            })();
+            committedBetweenTransfers = true;
+            sourceAfterCommit = fingerprint(sourceDatabase);
+            walAfterCommit = fingerprint(`${sourceDatabase}-wal`);
+          }
+          // The pinned backup library defaults to 100 pages when progress returns undefined.
+          return options?.progress?.(progress) ?? 100;
         },
-      }),
-    ).toEqual({ ok: false, code: "source_busy" });
-    noWorkerFiles();
-  });
-
-  it("rejects a newly created SHM companion above its independent cap", async () => {
-    const shm = `${sourceDatabase}-shm`;
-    expect(existsSync(shm)).toBe(false);
-    expect(
-      await createSnapshot(input, {
-        onPhase() {
-          writeFileSync(shm, "", { mode: 0o600 });
-          truncateSync(shm, SHM_CAP + 1);
-        },
-      }),
-    ).toEqual({ ok: false, code: "source_too_large" });
-    noWorkerFiles();
+      });
+    });
+    expect(await createSnapshot(input)).toEqual({ ok: true });
+    expect(committedBetweenTransfers).toBe(true);
+    const copy = new Database(input.destinationDatabase, { readonly: true });
+    try {
+      expect(copy.pragma("integrity_check", { simple: true })).toBe("ok");
+      expect(copy.prepare("SELECT COUNT(*) AS count FROM padding").get()).toEqual({ count: 220 });
+    } finally {
+      copy.close();
+    }
+    expect(rows()).toEqual([
+      { id: firstId, rollout_path: input.placeholder, title: "concurrent first title" },
+      { id: secondId, rollout_path: input.placeholder, title: "concurrent second title" },
+      { id: missingId, rollout_path: null, title: "synthetic null path" },
+    ]);
+    expect(fingerprint(sourceDatabase)).toEqual(sourceAfterCommit);
+    expect(fingerprint(`${sourceDatabase}-wal`)).toEqual(walAfterCommit);
+    expect(fingerprint(rollout)).toEqual(rolloutBefore);
   });
 
   it("restores only the selected row to one copied rollout and leaves all real rollouts unchanged", async () => {
@@ -415,6 +467,53 @@ describe("Codex private online-backup worker", () => {
       noWorkerFiles();
     },
   );
+
+  it("rejects backup progress above the byte cap and cleans the produced files", async () => {
+    const originalBackup = Database.prototype.backup;
+    const sourceBefore = fingerprint(sourceDatabase);
+    let reportedOversizedProgress = false;
+    vi.spyOn(Database.prototype, "backup").mockImplementation(function (
+      this: Database.Database,
+      filename,
+      options,
+    ) {
+      const pageSize = this.pragma("page_size", { simple: true }) as number;
+      return originalBackup.call(this, filename, {
+        ...options,
+        progress(progress) {
+          reportedOversizedProgress = true;
+          // Preserve the pinned library's default 100-page transfer size.
+          return (
+            options?.progress?.({
+              ...progress,
+              totalPages: Math.floor(DATABASE_CAP / pageSize) + 1,
+            }) ?? 100
+          );
+        },
+      });
+    });
+    expect(await createSnapshot(input)).toEqual({ ok: false, code: "source_too_large" });
+    expect(reportedOversizedProgress).toBe(true);
+    expect(fingerprint(sourceDatabase)).toEqual(sourceBefore);
+    noWorkerFiles();
+  });
+
+  it("rejects a completed backup above the byte cap and cleans the produced files", async () => {
+    const originalBackup = Database.prototype.backup;
+    const sourceBefore = fingerprint(sourceDatabase);
+    vi.spyOn(Database.prototype, "backup").mockImplementation(async function (
+      this: Database.Database,
+      filename,
+      options,
+    ) {
+      const result = await originalBackup.call(this, filename, options);
+      truncateSync(filename, DATABASE_CAP + 1);
+      return result;
+    });
+    expect(await createSnapshot(input)).toEqual({ ok: false, code: "source_too_large" });
+    expect(fingerprint(sourceDatabase)).toEqual(sourceBefore);
+    noWorkerFiles();
+  });
 
   it("rejects a source rollout outside the fixed roots and cleans its own failed backup", async () => {
     const outside = path.join(sourceHome, "not-approved.jsonl");

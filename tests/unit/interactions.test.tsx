@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ConversationBrowser } from "@/features/conversations/conversation-browser";
 import { FileBrowser } from "@/features/files/file-browser";
@@ -31,13 +31,18 @@ function asConversationSummary(conversation: (typeof mockConversations)[number])
 }
 
 describe("mock inspection flows", () => {
+  beforeEach(() => {
+    window.history.replaceState({}, "", "/agents/hermes");
+  });
+
   afterEach(() => {
     cleanup();
     vi.unstubAllGlobals();
+    window.history.replaceState({}, "", "/");
   });
 
   it("selects a system source and searches its loaded preview", () => {
-    render(<SystemBrowser sources={mockSystemSources} />);
+    render(<SystemBrowser panelId="hermes" sources={mockSystemSources} />);
     fireEvent.click(screen.getByRole("button", { name: /Memory.*Durable context/is }));
     fireEvent.change(screen.getByRole("searchbox", { name: "Search this document" }), {
       target: { value: "source" },
@@ -47,7 +52,7 @@ describe("mock inspection flows", () => {
   });
 
   it("filters loaded skill metadata without loading skill bodies", () => {
-    render(<SystemBrowser sources={mockSystemSources} />);
+    render(<SystemBrowser panelId="hermes" sources={mockSystemSources} />);
     fireEvent.click(screen.getByRole("button", { name: /Skills.*Capabilities/is }));
     fireEvent.change(screen.getByRole("searchbox", { name: "Filter skills" }), {
       target: { value: "research" },
@@ -64,24 +69,28 @@ describe("mock inspection flows", () => {
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
-          id: skill?.id,
-          title: skill?.name,
-          category: skill?.category,
-          summary: skill?.description,
-          content: "# Loaded skill\n\nBounded instructions.",
-          stamp: {
+          panelId: "hermes",
+          runtime: "hermes",
+          data: {
             id: skill?.id,
-            label: "Hermes skill manifest",
-            path: `<HERMES_HOME> / skills / ${skill?.path}`,
-            observedAt: "2026-09-04T00:00:00.000Z",
-            state: "ready",
+            title: skill?.name,
+            category: skill?.category,
+            summary: skill?.description,
+            content: "# Loaded skill\n\nBounded instructions.",
+            stamp: {
+              id: skill?.id,
+              label: "Hermes skill manifest",
+              path: `<HERMES_HOME> / skills / ${skill?.path}`,
+              observedAt: "2026-09-04T00:00:00.000Z",
+              state: "ready",
+            },
+            metadata: [{ label: "Type", value: "SKILL.md" }],
           },
-          metadata: [{ label: "Type", value: "SKILL.md" }],
         }),
       }),
     );
 
-    render(<SystemBrowser sources={mockSystemSources} />);
+    render(<SystemBrowser panelId="hermes" sources={mockSystemSources} />);
     fireEvent.click(screen.getByRole("button", { name: /Skills.*Capabilities/is }));
     const skillButton = screen.getByRole("button", { name: /research-brief/i });
     skillButton.focus();
@@ -99,14 +108,14 @@ describe("mock inspection flows", () => {
     expect(screen.getByText("Bounded", { selector: "mark" })).toBeInTheDocument();
     expect(skillButton).toHaveFocus();
     expect(fetch).toHaveBeenCalledWith(
-      `/api/system/context?id=${encodeURIComponent(skill!.id)}`,
+      `/api/agents/hermes/system/context?id=${encodeURIComponent(skill!.id)}`,
       expect.objectContaining({ cache: "no-store" }),
     );
     expect(JSON.stringify(vi.mocked(fetch).mock.calls)).not.toContain(skill?.path);
   });
 
   it("opens toolset rows and explains their real configuration state", () => {
-    render(<SystemBrowser sources={mockSystemSources} />);
+    render(<SystemBrowser panelId="hermes" sources={mockSystemSources} />);
     fireEvent.click(screen.getByRole("button", { name: /Tools.*Capabilities/is }));
     fireEvent.click(
       screen.getByRole("button", { name: /file.*Enabled by platform_toolsets\.cli/is }),
@@ -126,12 +135,18 @@ describe("mock inspection flows", () => {
       "fetch",
       vi.fn().mockImplementation(async (input: string) => ({
         ok: true,
-        json: async () =>
-          input.startsWith("/api/conversations?") ? nextPage : mockConversations[5],
+        json: async () => ({
+          panelId: "hermes",
+          runtime: "hermes",
+          data: input.startsWith("/api/agents/hermes/conversations?")
+            ? nextPage
+            : mockConversations[5],
+        }),
       })),
     );
     render(
       <ConversationBrowser
+        panelId="hermes"
         initialPage={{
           items: mockConversations.slice(0, 5).map(asConversationSummary),
           nextCursor: "cursor-fixture",
@@ -162,6 +177,7 @@ describe("mock inspection flows", () => {
     const malicious = '</script><img src="https://remote.invalid/pixel" onerror="alert(1)">';
     render(
       <ConversationBrowser
+        panelId="hermes"
         initialPage={{
           items: [asConversationSummary(mockConversations[0]!)],
           nextCursor: null,
@@ -191,17 +207,19 @@ describe("mock inspection flows", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => mockFiles[3],
+        json: async () => ({ panelId: "hermes", runtime: "hermes", data: mockFiles[3] }),
       }),
     );
-    render(<FileBrowser initialDirectory={mockDirectory} initialFile={mockFiles[0]!} />);
+    render(
+      <FileBrowser panelId="hermes" initialDirectory={mockDirectory} initialFile={mockFiles[0]!} />,
+    );
     fireEvent.click(screen.getByRole("button", { name: /tmp_lance_thread.pdf/i }));
     expect(
       await screen.findByRole("heading", { name: "Preview not available" }),
     ).toBeInTheDocument();
     expect(await screen.findByText("metadata-only")).toBeInTheDocument();
     expect(fetch).toHaveBeenCalledWith(
-      "/api/files/preview?path=tmp_lance_thread.pdf",
+      "/api/agents/hermes/files/preview?path=tmp_lance_thread.pdf",
       expect.objectContaining({ cache: "no-store" }),
     );
   });
@@ -233,8 +251,10 @@ describe("mock inspection flows", () => {
       "fetch",
       vi.fn().mockImplementation(async (input: string) => ({
         ok: true,
-        json: async () =>
-          input.startsWith("/api/files/preview")
+        json: async () => ({
+          panelId: "hermes",
+          runtime: "hermes",
+          data: input.startsWith("/api/agents/hermes/files/preview")
             ? { ...nestedFile, content: "# Nested guide\n\nBounded preview." }
             : {
                 path: "docs",
@@ -243,11 +263,13 @@ describe("mock inspection flows", () => {
                 observedAt: "2026-09-08T00:00:00.000Z",
                 truncated: false,
               },
+        }),
       })),
     );
 
     render(
       <FileBrowser
+        panelId="hermes"
         initialDirectory={{ ...mockDirectory, items: [directoryEntry] }}
         initialFile={null}
       />,
@@ -277,10 +299,20 @@ describe("mock inspection flows", () => {
       kind: "HTML source",
       content: html,
     };
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => file }));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ panelId: "hermes", runtime: "hermes", data: file }),
+      }),
+    );
 
     render(
-      <FileBrowser initialDirectory={{ ...mockDirectory, items: [file] }} initialFile={null} />,
+      <FileBrowser
+        panelId="hermes"
+        initialDirectory={{ ...mockDirectory, items: [file] }}
+        initialFile={null}
+      />,
     );
     fireEvent.click(screen.getByRole("button", { name: /a&b \?#<>\.html.*HTML source/is }));
 
@@ -288,7 +320,7 @@ describe("mock inspection flows", () => {
     expect(document.querySelector("script")).toBeNull();
     expect(document.querySelector("img")).toBeNull();
     expect(fetch).toHaveBeenCalledWith(
-      `/api/files/preview?path=${encodeURIComponent(unusualPath)}`,
+      `/api/agents/hermes/files/preview?path=${encodeURIComponent(unusualPath)}`,
       expect.objectContaining({ cache: "no-store" }),
     );
   });

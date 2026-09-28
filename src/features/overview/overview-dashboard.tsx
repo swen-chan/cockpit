@@ -13,7 +13,9 @@ import { PageHeader } from "@/components/page-header";
 import { SectionHeading } from "@/components/section-heading";
 import { SourceState } from "@/components/source-state";
 import { StatusLabel } from "@/components/status-label";
+import type { AgentPanelId } from "@/contracts/agents";
 import type { OverviewSectionStatus, OverviewSnapshot } from "@/contracts/cockpit";
+import { panelSurfaceHref } from "@/lib/panel-navigation";
 import { formatShanghaiTime } from "@/lib/time";
 
 function sectionFailure(section: OverviewSectionStatus) {
@@ -28,15 +30,15 @@ function observedDetail(observedAt: string): string {
 }
 
 export function OverviewDashboard({
-  basePath = "",
+  panelId,
   snapshot,
 }: {
-  basePath?: string;
+  panelId: AgentPanelId;
   snapshot: OverviewSnapshot;
 }) {
   const { conversations, jobs, profile, system, workspace } = snapshot;
   const surfaceHref = (surface: "conversations" | "files" | "jobs" | "system"): Route =>
-    `${basePath}/${surface}` as Route;
+    panelSurfaceHref(panelId, surface) as Route;
   const conversationCount =
     conversations.state === "ready"
       ? `${conversations.items.length}${conversations.hasMore ? "+" : ""}`

@@ -17,14 +17,14 @@ Cockpit does not send messages, resume tasks, edit files, control jobs, or
 create a second persistent application database.
 
 > [!IMPORTANT]
-> **v0.2.0 is a developer preview, not universal agent support.** The Hermes preset
+> **v0.3.0 is a developer preview, not universal agent support.** The Hermes preset
 > targets [Hermes Agent v0.21.2](https://github.com/NousResearch/hermes-agent/releases/tag/v2026.9.11)
 > (release `v2026.9.11`). Codex integration is pinned to Codex CLI `0.145.0`.
 > Automated regression tests use synthetic data; limited local acceptance is
 > not a guarantee for other installations. There is no import wizard or
 > automatic source discovery.
 
-See the [v0.2.0 release notes](docs/releases/v0.2.0.md) for changes,
+See the [v0.3.0 release notes](docs/releases/v0.3.0.md) for changes,
 installation instructions, and known limits.
 
 Cockpit is an independent open-source project. It is not affiliated with or
@@ -72,6 +72,12 @@ Create an ignored `.env.local` using one of the options below. Replace the
 example paths with your own absolute paths; do not use a literal `~`.
 Neither agent requires the other to be installed.
 
+Hermes requires both an approved workspace and exactly one source preset or
+manifest. Codex requires an explicit Codex home; its optional workspace and
+custom guidance settings do not enable a panel on their own. With no Agent
+configured, Cockpit shows setup guidance. Incomplete or invalid configuration
+shows an error with the required settings, without opening an Agent source.
+
 #### Hermes only
 
 ```dotenv
@@ -117,12 +123,16 @@ COCKPIT_CODEX_HOME=/absolute/path/to/your/.codex
 COCKPIT_DEFAULT_PANEL=hermes
 ```
 
-Use the Agent switcher to change panels. Opening `/` remembers the last
-successfully opened panel in that browser; there is no mandatory startup picker.
-An explicit `/agents/hermes` or `/agents/codex` URL takes priority. Without a
-valid remembered selection, the default is Hermes when both are configured,
-or Codex when it is the only panel. `COCKPIT_DEFAULT_PANEL` can override that
-fallback with a configured panel's name (`hermes` or `codex`).
+Every panel uses `/agents/hermes` or `/agents/codex`, including installations
+with only one configured Agent. Its views append `/system`, `/conversations`,
+`/files`, or `/jobs` when supported; read APIs use the matching
+`/api/agents/<panel>/...` prefix.
+
+Opening `/` selects the last successfully opened panel in that browser. An
+explicit panel URL takes priority. Without a valid remembered selection, `/`
+opens the only configured Agent, or Hermes when both are configured.
+`COCKPIT_DEFAULT_PANEL` can select either configured panel (`hermes` or `codex`)
+as that fallback. The Agent switcher appears when both panels are configured.
 
 ### Start Cockpit
 
@@ -221,7 +231,8 @@ checks formatting, types, ESLint with zero warnings, unit/integration tests, and
 the production build. Installing dependencies also configures a pre-commit hook
 that runs ESLint and Prettier only on staged files. The browser suite runs
 Chromium flows against temporary synthetic Agent environments; it refuses to
-reuse a real server on port 3000.
+reuse a real server on port 3000. The scenarios cover Hermes only, Codex only,
+both Agents, an unavailable Codex runtime, and missing or invalid configuration.
 
 For a focused issue or pull request, keep changes inside the current local,
 read-only, single-user boundary, run both verification commands, and never

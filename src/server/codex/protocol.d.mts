@@ -4,12 +4,7 @@ export interface ProtocolOptions {
   argvPrefix?: string[];
   home: string;
   owner?: {
-    recordProcess(record: {
-      pid: number;
-      pgid: number;
-      executableIdentity: string;
-      startToken: string;
-    }): void | Promise<unknown>;
+    recordProcess(record: { pid: number; pgid: number }): void | Promise<unknown>;
   };
   signal?: AbortSignal;
   sampleGroup?: (pgid: number) => Promise<ProcessSample>;

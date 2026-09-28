@@ -112,8 +112,6 @@ process.on("message", async (message) => {
         record: {
           pid: child.pid,
           pgid: child.pid,
-          executableIdentity: `${identity.dev}:${identity.ino}:${identity.size}`,
-          startToken: String(performance.now()),
         },
       });
     } else if (state === "ownership" && message?.type === "ownershipAccepted") {

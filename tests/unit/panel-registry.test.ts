@@ -3,54 +3,60 @@ import { describe, expect, it } from "vitest";
 import {
   chooseInitialPanelId,
   requirePanelSurface,
-  resolveLegacyHermesPanel,
   resolvePanel,
   resolvePanelRegistry,
+  type PanelRegistry,
 } from "@/server/panels/registry";
 
 const missingRoot = "/definitely-not-present/cockpit-fixture";
+const hermesConfiguration = {
+  COCKPIT_WORKSPACE_ROOT: `${missingRoot}/hermes-workspace`,
+  COCKPIT_SOURCE_PRESET: "hermes-v2026.9.11",
+};
+
+function readyRegistry(environment: Readonly<Record<string, string | undefined>>): PanelRegistry {
+  const registry = resolvePanelRegistry(environment);
+  expect(registry.state).toBe("ready");
+  if (registry.state !== "ready") throw new Error("Expected a configured registry.");
+  return registry;
+}
 
 describe("fixed Agent panel registry", () => {
-  it("preserves legacy single-Hermes policy without resolving incomplete sources", () => {
-    const registry = resolvePanelRegistry({
-      COCKPIT_WORKSPACE_ROOT: "relative-legacy-value",
-      COCKPIT_SOURCE_PRESET: "legacy-one",
-      COCKPIT_SOURCE_MANIFEST: "legacy-two",
+  it("reports no configured Agent without activating an ambient Hermes home", () => {
+    expect(resolvePanelRegistry({})).toEqual({ state: "unconfigured" });
+    expect(resolvePanelRegistry({ HERMES_HOME: `${missingRoot}/ambient-hermes` })).toEqual({
+      state: "unconfigured",
     });
+  });
 
-    expect(registry).toMatchObject({
-      mode: "legacySingleHermes",
-      defaultPanelId: "hermes",
-      publicPanels: [
-        {
-          id: "hermes",
-          name: "Hermes",
-          runtime: "hermes",
-          surfaces: ["overview", "system", "conversations", "files", "jobs"],
-        },
-      ],
+  it("resolves the same Hermes configuration alone or alongside Codex", () => {
+    const alone = readyRegistry(hermesConfiguration);
+    const dual = readyRegistry({
+      ...hermesConfiguration,
+      COCKPIT_CODEX_HOME: `${missingRoot}/codex`,
     });
-    expect(resolveLegacyHermesPanel(registry).configuration).toEqual({ mode: "legacy" });
+    expect(alone.panels).toHaveLength(1);
+    expect(alone.defaultPanelId).toBe("hermes");
+    expect(resolvePanel(alone, "hermes")).toEqual(resolvePanel(dual, "hermes"));
+    expect(alone.publicPanels[0]?.surfaces).toEqual([
+      "overview",
+      "system",
+      "conversations",
+      "files",
+      "jobs",
+    ]);
   });
 
   it("constructs Codex-only panels from structural paths without touching the filesystem", () => {
-    const withoutWorkspace = resolvePanelRegistry({
-      COCKPIT_CODEX_HOME: `${missingRoot}/codex-home`,
-    });
-    expect(withoutWorkspace).toMatchObject({
-      mode: "scopedCodexOnly",
-      defaultPanelId: "codex",
-      publicPanels: [
-        {
-          id: "codex",
-          name: "Codex",
-          runtime: "codex",
-          surfaces: ["overview", "system", "conversations"],
-        },
-      ],
-    });
-
-    const withWorkspace = resolvePanelRegistry({
+    const withoutWorkspace = readyRegistry({ COCKPIT_CODEX_HOME: `${missingRoot}/codex-home` });
+    expect(withoutWorkspace.defaultPanelId).toBe("codex");
+    expect(withoutWorkspace.panels).toHaveLength(1);
+    expect(withoutWorkspace.publicPanels[0]?.surfaces).toEqual([
+      "overview",
+      "system",
+      "conversations",
+    ]);
+    const withWorkspace = readyRegistry({
       COCKPIT_CODEX_HOME: `${missingRoot}/codex-home`,
       COCKPIT_CODEX_WORKSPACE_ROOT: `${missingRoot}/workspace`,
       COCKPIT_CODEX_CUSTOM_GUIDANCE: "guidance/SOUL.md",
@@ -65,15 +71,12 @@ describe("fixed Agent panel registry", () => {
   });
 
   it("constructs a stable dual registry and honors only a configured default", () => {
-    const registry = resolvePanelRegistry({
-      COCKPIT_WORKSPACE_ROOT: `${missingRoot}/hermes-workspace`,
-      COCKPIT_SOURCE_PRESET: "future-hermes-layout",
+    const registry = readyRegistry({
+      ...hermesConfiguration,
       COCKPIT_HERMES_HOME: `${missingRoot}/hermes-home`,
       COCKPIT_CODEX_HOME: `${missingRoot}/codex-home`,
       COCKPIT_DEFAULT_PANEL: "codex",
     });
-
-    expect(registry.mode).toBe("scopedDual");
     expect(registry.panels.map(({ id }) => id)).toEqual(["hermes", "codex"]);
     expect(registry.defaultPanelId).toBe("codex");
     expect(Object.isFrozen(registry)).toBe(true);
@@ -81,47 +84,29 @@ describe("fixed Agent panel registry", () => {
     expect(Object.isFrozen(registry.publicPanels[0]?.surfaces)).toBe(true);
   });
 
-  it("captures the documented Hermes home fallback only for an explicitly configured Hermes panel", () => {
+  it("captures the documented Hermes home only for an explicitly configured Hermes panel", () => {
     const ambientHermesHome = `${missingRoot}/ambient-hermes-home`;
     const cockpitHermesHome = `${missingRoot}/cockpit-hermes-home`;
-    const base = {
-      COCKPIT_WORKSPACE_ROOT: `${missingRoot}/hermes-workspace`,
-      COCKPIT_SOURCE_PRESET: "future-hermes-layout",
-      COCKPIT_CODEX_HOME: `${missingRoot}/codex-home`,
-    };
-
     const fallback = resolvePanel(
-      resolvePanelRegistry({
-        ...base,
-        HERMES_HOME: ambientHermesHome,
-      }),
+      resolvePanelRegistry({ ...hermesConfiguration, HERMES_HOME: ambientHermesHome }),
       "hermes",
     );
-    expect(fallback.runtime).toBe("hermes");
-    expect(fallback.runtime === "hermes" ? fallback.configuration : null).toMatchObject({
-      mode: "scoped",
-      explicitHome: ambientHermesHome,
-    });
-
+    expect(fallback.configuration).toMatchObject({ explicitHome: ambientHermesHome });
     const preferred = resolvePanel(
       resolvePanelRegistry({
-        ...base,
+        ...hermesConfiguration,
         COCKPIT_HERMES_HOME: cockpitHermesHome,
         HERMES_HOME: ambientHermesHome,
       }),
       "hermes",
     );
-    expect(preferred.runtime === "hermes" ? preferred.configuration : null).toMatchObject({
-      mode: "scoped",
-      explicitHome: cockpitHermesHome,
-    });
-
+    expect(preferred.configuration).toMatchObject({ explicitHome: cockpitHermesHome });
     expect(
-      resolvePanelRegistry({
+      readyRegistry({
         COCKPIT_CODEX_HOME: `${missingRoot}/codex-home`,
         HERMES_HOME: ambientHermesHome,
-      }).mode,
-    ).toBe("scopedCodexOnly");
+      }).panels.map(({ id }) => id),
+    ).toEqual(["codex"]);
   });
 
   it("keeps private configuration out of public summaries", () => {
@@ -133,7 +118,7 @@ describe("fixed Agent panel registry", () => {
       `${missingRoot}/codex-workspace`,
       "private/SOUL.md",
     ];
-    const registry = resolvePanelRegistry({
+    const registry = readyRegistry({
       COCKPIT_WORKSPACE_ROOT: secrets[0],
       COCKPIT_SOURCE_MANIFEST: secrets[1],
       COCKPIT_HERMES_HOME: secrets[2],
@@ -142,22 +127,25 @@ describe("fixed Agent panel registry", () => {
       COCKPIT_CODEX_CUSTOM_GUIDANCE: secrets[5],
     });
     const serialized = JSON.stringify(registry.publicPanels);
-
     for (const secret of secrets) expect(serialized).not.toContain(secret);
     expect(serialized).not.toMatch(/(?:manifest|guidance|home|root|executable|token)/iu);
   });
 
   it.each([
-    [{ COCKPIT_CODEX_WORKSPACE_ROOT: `${missingRoot}/workspace` }],
-    [{ COCKPIT_CODEX_CUSTOM_GUIDANCE: "SOUL.md" }],
-    [{ COCKPIT_CODEX_HOME: "relative/codex" }],
-    [{ COCKPIT_CODEX_HOME: "/" }],
-    [{ COCKPIT_CODEX_HOME: `${missingRoot}/codex`, COCKPIT_CODEX_CUSTOM_GUIDANCE: "SOUL.md" }],
+    [{ COCKPIT_CODEX_WORKSPACE_ROOT: `${missingRoot}/workspace` }, "COCKPIT_CODEX_HOME"],
+    [{ COCKPIT_CODEX_CUSTOM_GUIDANCE: "SOUL.md" }, "COCKPIT_CODEX_HOME"],
+    [{ COCKPIT_CODEX_HOME: "relative/codex" }, "COCKPIT_CODEX_HOME"],
+    [{ COCKPIT_CODEX_HOME: "/" }, "COCKPIT_CODEX_HOME"],
+    [
+      { COCKPIT_CODEX_HOME: `${missingRoot}/codex`, COCKPIT_CODEX_CUSTOM_GUIDANCE: "SOUL.md" },
+      "COCKPIT_CODEX_WORKSPACE_ROOT",
+    ],
     [
       {
         COCKPIT_CODEX_HOME: `${missingRoot}/codex`,
         COCKPIT_CODEX_WORKSPACE_ROOT: "relative/workspace",
       },
+      "COCKPIT_CODEX_WORKSPACE_ROOT",
     ],
     [
       {
@@ -165,6 +153,7 @@ describe("fixed Agent panel registry", () => {
         COCKPIT_CODEX_WORKSPACE_ROOT: `${missingRoot}/workspace`,
         COCKPIT_CODEX_CUSTOM_GUIDANCE: "../SOUL.md",
       },
+      "COCKPIT_CODEX_CUSTOM_GUIDANCE",
     ],
     [
       {
@@ -172,69 +161,74 @@ describe("fixed Agent panel registry", () => {
         COCKPIT_CODEX_WORKSPACE_ROOT: `${missingRoot}/workspace`,
         COCKPIT_CODEX_CUSTOM_GUIDANCE: "/SOUL.md",
       },
+      "COCKPIT_CODEX_CUSTOM_GUIDANCE",
     ],
+    [{ COCKPIT_WORKSPACE_ROOT: `${missingRoot}/hermes` }, "COCKPIT_SOURCE_PRESET"],
+    [
+      { COCKPIT_WORKSPACE_ROOT: `${missingRoot}/hermes`, COCKPIT_SOURCE_PRESET: "unknown-preset" },
+      "COCKPIT_SOURCE_PRESET",
+    ],
+    [{ COCKPIT_SOURCE_PRESET: "hermes-v2026.9.11" }, "COCKPIT_WORKSPACE_ROOT"],
     [
       {
-        COCKPIT_CODEX_HOME: `${missingRoot}/codex`,
-        COCKPIT_WORKSPACE_ROOT: `${missingRoot}/hermes`,
-      },
-    ],
-    [
-      {
-        COCKPIT_CODEX_HOME: `${missingRoot}/codex`,
         COCKPIT_WORKSPACE_ROOT: `${missingRoot}/hermes`,
         COCKPIT_SOURCE_PRESET: "one",
         COCKPIT_SOURCE_MANIFEST: `${missingRoot}/two.json`,
       },
+      "COCKPIT_SOURCE_PRESET",
     ],
     [
-      {
-        COCKPIT_CODEX_HOME: `${missingRoot}/codex`,
-        COCKPIT_WORKSPACE_ROOT: `${missingRoot}/hermes`,
-        COCKPIT_SOURCE_MANIFEST: "/",
-      },
+      { COCKPIT_WORKSPACE_ROOT: `${missingRoot}/hermes`, COCKPIT_SOURCE_MANIFEST: "/" },
+      "COCKPIT_SOURCE_MANIFEST",
     ],
-    [{ COCKPIT_CODEX_HOME: `${missingRoot}/codex`, COCKPIT_DEFAULT_PANEL: "hermes" }],
-    [{ COCKPIT_CODEX_HOME: `${missingRoot}/codex\nchild` }],
-    [{ COCKPIT_CODEX_HOME: `${missingRoot}/codex\n` }],
-    [{ COCKPIT_CODEX_HOME: `${missingRoot}/codex ` }],
-    [{ COCKPIT_CODEX_HOME: " " }],
-    [{ COCKPIT_CODEX_HOME: `${missingRoot}/codex`, COCKPIT_DEFAULT_PANEL: " codex " }],
-  ])("rejects partial, conflicting, or unsafe scoped configuration %#", (environment) => {
-    expect(() => resolvePanelRegistry(environment)).toThrowError(
-      expect.objectContaining({ code: "source_malformed" }),
-    );
+    [
+      { COCKPIT_CODEX_HOME: `${missingRoot}/codex`, COCKPIT_DEFAULT_PANEL: "hermes" },
+      "COCKPIT_DEFAULT_PANEL",
+    ],
+    [{ COCKPIT_CODEX_HOME: `${missingRoot}/codex\nchild` }, "COCKPIT_CODEX_HOME"],
+    [{ COCKPIT_CODEX_HOME: `${missingRoot}/codex\n` }, "COCKPIT_CODEX_HOME"],
+    [{ COCKPIT_CODEX_HOME: `${missingRoot}/codex ` }, "COCKPIT_CODEX_HOME"],
+    [{ COCKPIT_CODEX_HOME: " " }, "COCKPIT_CODEX_HOME"],
+    [
+      { COCKPIT_CODEX_HOME: `${missingRoot}/codex`, COCKPIT_DEFAULT_PANEL: " codex " },
+      "COCKPIT_DEFAULT_PANEL",
+    ],
+  ])("reports a fixed configuration key for invalid input %#", (environment, key) => {
+    expect(resolvePanelRegistry(environment)).toMatchObject({ state: "invalid", key });
+  });
+
+  it("does not echo an invalid configuration value", () => {
+    const marker = "PRIVATE_CONFIGURATION_MARKER";
+    const result = resolvePanelRegistry({ ...hermesConfiguration, COCKPIT_WORKSPACE_ROOT: marker });
+    expect(result).toEqual({
+      state: "invalid",
+      key: "COCKPIT_WORKSPACE_ROOT",
+      requirement: "Use an absolute path other than the filesystem root.",
+    });
+    expect(JSON.stringify(result)).not.toContain(marker);
   });
 
   it("resolves remembered/default panels without using availability as a fallback", () => {
-    const registry = resolvePanelRegistry({
-      COCKPIT_WORKSPACE_ROOT: `${missingRoot}/hermes`,
-      COCKPIT_SOURCE_PRESET: "hermes-v2026.9.11",
+    const registry = readyRegistry({
+      ...hermesConfiguration,
       COCKPIT_CODEX_HOME: `${missingRoot}/codex`,
       COCKPIT_DEFAULT_PANEL: "codex",
     });
-
     expect(chooseInitialPanelId(registry, "hermes")).toBe("hermes");
     expect(chooseInitialPanelId(registry, "removed-panel")).toBe("codex");
     expect(chooseInitialPanelId(registry, null)).toBe("codex");
   });
 
   it("rejects unknown panels and unsupported capabilities without fallback", () => {
-    const registry = resolvePanelRegistry({ COCKPIT_CODEX_HOME: `${missingRoot}/codex` });
+    const registry = readyRegistry({ COCKPIT_CODEX_HOME: `${missingRoot}/codex` });
     expect(() => resolvePanel(registry, "hermes")).toThrowError(
       expect.objectContaining({ code: "invalid_panel" }),
     );
     expect(() => resolvePanel(registry, "../../hermes")).toThrowError(
       expect.objectContaining({ code: "invalid_panel" }),
     );
-    const codex = resolvePanel(registry, "codex");
-    expect(() => requirePanelSurface(codex, "jobs")).toThrowError(
-      expect.objectContaining({
-        code: "unsupported_capability",
-      }),
-    );
-    expect(() => resolveLegacyHermesPanel(registry)).toThrowError(
-      expect.objectContaining({ code: "panel_required" }),
+    expect(() => requirePanelSurface(resolvePanel(registry, "codex"), "jobs")).toThrowError(
+      expect.objectContaining({ code: "unsupported_capability" }),
     );
   });
 });

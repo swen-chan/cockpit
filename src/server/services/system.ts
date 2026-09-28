@@ -2,7 +2,6 @@ import "server-only";
 
 import { homedir } from "node:os";
 import path from "node:path";
-import { cache } from "react";
 
 import type { ProfileSummary, SystemSnapshot, SystemSource } from "@/contracts/cockpit";
 import {
@@ -231,8 +230,6 @@ export async function loadProfileFromEnvironment(
   }
   return readProfileSummary(context, manifestResult.manifest.configRelativePath);
 }
-
-export const loadProfileForRequest = cache(() => loadProfileFromEnvironment());
 
 export async function loadCoreSystemSources(
   options: LoadSystemOptions = {},

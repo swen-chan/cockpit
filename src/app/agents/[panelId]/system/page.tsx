@@ -20,7 +20,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function AgentSystemPage({ params }: Props) {
   const { panelId } = await params;
-  const { panel, supported } = requireScopedPage(panelId, "system");
+  const context = requireScopedPage(panelId, "system");
+  if (context.state !== "ready") return null;
+  const { panel, supported } = context;
   if (!supported) return <UnsupportedSurface panel={panel} surface="system" />;
   if (panel.runtime === "codex") {
     const snapshot = codexSystemSnapshotSchema.parse(await loadAgentSystem(panel));

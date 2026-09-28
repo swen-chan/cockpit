@@ -10,6 +10,19 @@ import { readConversationPage, readConversationTranscript } from "@/server/adapt
 import type { HermesContext } from "@/server/config/hermes-context";
 import type { PrivateSourceManifest } from "@/server/config/source-manifest";
 import { toSafeDiagnostic } from "@/server/security/errors";
+import { createScopedHermesConversationIdentityCodec } from "@/server/services/hermes-scoped";
+
+const identityCodec = createScopedHermesConversationIdentityCodec({
+  id: "hermes",
+  name: "Hermes",
+  runtime: "hermes",
+  adapterVersion: "hermes-v1",
+  surfaces: ["conversations"],
+  configuration: {
+    workspaceRoot: "/synthetic/workspace",
+    source: { kind: "preset", value: "hermes-v2026.9.11" },
+  },
+});
 
 const manifest: PrivateSourceManifest = {
   configRelativePath: "settings.yaml",
@@ -311,6 +324,7 @@ describe("conversation adapter", () => {
     const first = await readConversationPage(
       context,
       manifest.conversation,
+      { identityCodec },
       null,
       2,
       new Date("2026-09-07T00:00:00Z"),
@@ -328,7 +342,13 @@ describe("conversation adapter", () => {
       "1970-01-01T00:05:03.000Z",
     ]);
 
-    const second = await readConversationPage(context, manifest.conversation, first.nextCursor, 2);
+    const second = await readConversationPage(
+      context,
+      manifest.conversation,
+      { identityCodec },
+      first.nextCursor,
+      2,
+    );
     expect(second.items.map((item) => item.title)).toEqual(["Untitled conversation"]);
     expect(second.nextCursor).toBeNull();
   });
@@ -337,7 +357,13 @@ describe("conversation adapter", () => {
     const { context, database } = fixture();
     seed(database);
     database.close();
-    const page = await readConversationPage(context, manifest.conversation, null, 1);
+    const page = await readConversationPage(
+      context,
+      manifest.conversation,
+      { identityCodec },
+      null,
+      1,
+    );
     const updated = new Database(
       path.join(context.home, manifest.conversation.databaseRelativePath),
     );
@@ -351,6 +377,7 @@ describe("conversation adapter", () => {
       context,
       manifest.conversation,
       page.items[0]!.id,
+      { identityCodec },
     );
 
     expect(conversationSchema.safeParse(transcript).success).toBe(true);
@@ -382,20 +409,21 @@ describe("conversation adapter", () => {
       .run(1, "large", "user", "x".repeat(30_000), null, 100, 1, 0, null, null, null, null);
     database.close();
 
-    const page = await readConversationPage(context, manifest.conversation);
+    const page = await readConversationPage(context, manifest.conversation, { identityCodec });
     expect(page.items[0]?.preview).toHaveLength(160);
     const transcript = await readConversationTranscript(
       context,
       manifest.conversation,
       page.items[0]!.id,
+      { identityCodec },
     );
     expect(transcript.messages[0]?.content).toHaveLength(20_000);
     expect(transcript.truncated).toBe(true);
     await expect(
-      readConversationPage(context, manifest.conversation, "cursor-forged", 5),
+      readConversationPage(context, manifest.conversation, { identityCodec }, "cursor-forged", 5),
     ).rejects.toMatchObject({ code: "invalid_path" });
     await expect(
-      readConversationTranscript(context, manifest.conversation, "conversation-forged"),
+      readConversationTranscript(context, manifest.conversation, "task-forged", { identityCodec }),
     ).rejects.toMatchObject({ code: "invalid_path" });
   });
 
@@ -405,12 +433,18 @@ describe("conversation adapter", () => {
     let databaseCalls = 0;
 
     await expect(
-      readConversationPage(context, manifest.conversation, "cursor-forged", 5, new Date(), {
-        databaseReader: async () => {
-          databaseCalls += 1;
-          throw new Error("database reader must not run");
+      readConversationPage(
+        context,
+        manifest.conversation,
+        {
+          identityCodec,
+          databaseReader: async () => {
+            databaseCalls += 1;
+            throw new Error("database reader must not run");
+          },
         },
-      }),
+        "cursor-forged",
+      ),
     ).rejects.toMatchObject({ code: "invalid_path" });
     expect(databaseCalls).toBe(0);
   });
@@ -421,7 +455,8 @@ describe("conversation adapter", () => {
     const busy = Object.assign(new Error("private database detail"), { code: "SQLITE_BUSY" });
     let captured: unknown;
     try {
-      await readConversationPage(context, manifest.conversation, null, 5, new Date(), {
+      await readConversationPage(context, manifest.conversation, {
+        identityCodec,
         databaseReader: async () => {
           throw busy;
         },

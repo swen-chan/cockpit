@@ -5,12 +5,7 @@ export function createStateSnapshot(options: {
   allowedRolloutRoots?: string[];
   owner: {
     directory: string;
-    recordProcess(record: {
-      pid: number;
-      pgid: number;
-      executableIdentity: string;
-      startToken: string;
-    }): void | Promise<unknown>;
+    recordProcess(record: { pid: number; pgid: number }): void | Promise<unknown>;
   };
   signal?: AbortSignal;
   sampleGroup?: (pgid: number) => Promise<ProcessSample>;
@@ -27,12 +22,7 @@ export function verifyCopiedTask(options: {
   taskId: string;
   owner: {
     directory: string;
-    recordProcess(record: {
-      pid: number;
-      pgid: number;
-      executableIdentity: string;
-      startToken: string;
-    }): void | Promise<unknown>;
+    recordProcess(record: { pid: number; pgid: number }): void | Promise<unknown>;
   };
   signal?: AbortSignal;
   sampleGroup?: (pgid: number) => Promise<ProcessSample>;

@@ -74,7 +74,7 @@ describe("Overview dashboard", () => {
   afterEach(cleanup);
 
   it("renders the live compact registers and their independent freshness", () => {
-    render(<OverviewDashboard snapshot={snapshot} />);
+    render(<OverviewDashboard panelId="hermes" snapshot={snapshot} />);
 
     expect(screen.getByText("LIVE / READ ONLY")).toBeInTheDocument();
     expect(screen.getByText("/Users/fixture/.hermes")).toBeInTheDocument();
@@ -83,26 +83,6 @@ describe("Overview dashboard", () => {
     expect(screen.getByText("8 total · 1 paused")).toBeInTheDocument();
     expect(screen.getByText("Approved workspace · 12 shown / partial")).toBeInTheDocument();
     expect(screen.getByText("Live conversation")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Conversations" })).toHaveAttribute(
-      "href",
-      "/conversations",
-    );
-    expect(screen.getByRole("link", { name: "System" })).toHaveAttribute("href", "/system");
-    expect(screen.getByRole("link", { name: "Jobs" })).toHaveAttribute("href", "/jobs");
-    expect(screen.getByRole("link", { name: "Files" })).toHaveAttribute("href", "/files");
-    expect(screen.queryByRole("link", { name: /Live conversation/i })).not.toBeInTheDocument();
-    expect(
-      screen.getByText("Approved workspace · Modified 2026-09-08 11:00 CST"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("History partial")).toBeInTheDocument();
-    expect(screen.getByText("Daily report")).toBeInTheDocument();
-    expect(screen.getByText("Live local snapshot")).toBeInTheDocument();
-    expect(screen.queryByText("Mock UI milestone")).not.toBeInTheDocument();
-  });
-
-  it("keeps Overview links inside a validated scoped panel", () => {
-    render(<OverviewDashboard snapshot={snapshot} basePath="/agents/hermes" />);
-
     expect(screen.getByRole("link", { name: "Conversations" })).toHaveAttribute(
       "href",
       "/agents/hermes/conversations",
@@ -119,6 +99,14 @@ describe("Overview dashboard", () => {
       "href",
       "/agents/hermes/files",
     );
+    expect(screen.queryByRole("link", { name: /Live conversation/i })).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Approved workspace · Modified 2026-09-08 11:00 CST"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("History partial")).toBeInTheDocument();
+    expect(screen.getByText("Daily report")).toBeInTheDocument();
+    expect(screen.getByText("Live local snapshot")).toBeInTheDocument();
+    expect(screen.queryByText("Mock UI milestone")).not.toBeInTheDocument();
   });
 
   it("keeps successful sections visible while failures and empty data stay scoped", () => {
@@ -149,7 +137,7 @@ describe("Overview dashboard", () => {
       workspace: { ...snapshot.workspace, loadedCount: 0, truncated: false, items: [] },
     };
 
-    render(<OverviewDashboard snapshot={partial} />);
+    render(<OverviewDashboard panelId="hermes" snapshot={partial} />);
 
     const conversations = screen
       .getByRole("heading", { name: "Conversations" })
@@ -167,13 +155,19 @@ describe("Overview dashboard", () => {
     ).toBeInTheDocument();
     expect(within(conversations).getByRole("link", { name: "Conversations" })).toHaveAttribute(
       "href",
-      "/conversations",
+      "/agents/hermes/conversations",
     );
-    expect(within(system).getByRole("link", { name: "System" })).toHaveAttribute("href", "/system");
-    expect(within(jobs).getByRole("link", { name: "Jobs" })).toHaveAttribute("href", "/jobs");
+    expect(within(system).getByRole("link", { name: "System" })).toHaveAttribute(
+      "href",
+      "/agents/hermes/system",
+    );
+    expect(within(jobs).getByRole("link", { name: "Jobs" })).toHaveAttribute(
+      "href",
+      "/agents/hermes/jobs",
+    );
     expect(within(workspace).getByRole("link", { name: "Files" })).toHaveAttribute(
       "href",
-      "/files",
+      "/agents/hermes/files",
     );
     expect(screen.getByText("default")).toBeInTheDocument();
     expect(screen.getByText("Config read failed")).toBeInTheDocument();

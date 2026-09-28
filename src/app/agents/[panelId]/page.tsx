@@ -5,7 +5,6 @@ import { UnsupportedSurface } from "@/components/scoped-surface-state";
 import { agentSurfaceSchema } from "@/contracts/agents";
 import { CodexOverviewStatus } from "@/features/overview/codex-overview-status";
 import { OverviewDashboard } from "@/features/overview/overview-dashboard";
-import { panelSurfaceHref } from "@/lib/panel-navigation";
 import { requireScopedPage, scopedPageMetadata } from "@/server/panels/page-routing";
 import { loadAgentOverview } from "@/server/services/agents";
 
@@ -20,7 +19,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function AgentOverviewPage({ params, searchParams }: Props) {
   const { panelId } = await params;
-  const { panel, supported } = requireScopedPage(panelId, "overview");
+  const context = requireScopedPage(panelId, "overview");
+  if (context.state !== "ready") return null;
+  const { panel, supported } = context;
   if (!supported) return <UnsupportedSurface panel={panel} surface="overview" />;
 
   const fromValue = (await searchParams).from;
@@ -34,7 +35,7 @@ export default async function AgentOverviewPage({ params, searchParams }: Props)
     return (
       <>
         <LastPanelCommit panelId={panel.id} />
-        <OverviewDashboard snapshot={snapshot} basePath={panelSurfaceHref(panel.id, "overview")} />
+        <OverviewDashboard snapshot={snapshot} panelId={panel.id} />
       </>
     );
   }

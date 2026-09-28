@@ -24,23 +24,13 @@ const icons: Readonly<Record<AgentSurface, LucideIcon>> = Object.freeze({
   jobs: CalendarClock,
 });
 
-const legacyItems: ReadonlyArray<{ href: Route; label: string; surface: AgentSurface }> = [
-  { href: "/", label: "Overview", surface: "overview" },
-  { href: "/system", label: "System", surface: "system" },
-  { href: "/conversations", label: "Conversations", surface: "conversations" },
-  { href: "/files", label: "Files", surface: "files" },
-  { href: "/jobs", label: "Jobs", surface: "jobs" },
-];
-
-export function Navigation({ panel }: { panel?: PublicAgentPanel | undefined }) {
+export function Navigation({ panel }: { panel: PublicAgentPanel }) {
   const pathname = usePathname();
-  const items = panel
-    ? panel.surfaces.map((surface) => ({
-        href: panelSurfaceHref(panel.id, surface) as Route,
-        label: panelSurfaceLabel(panel, surface),
-        surface,
-      }))
-    : legacyItems;
+  const items = panel.surfaces.map((surface) => ({
+    href: panelSurfaceHref(panel.id, surface) as Route,
+    label: panelSurfaceLabel(panel, surface),
+    surface,
+  }));
 
   return (
     <nav className="primary-nav" aria-label="Primary navigation">
@@ -54,7 +44,7 @@ export function Navigation({ panel }: { panel?: PublicAgentPanel | undefined }) 
             key={surface}
             className={cn("nav-link", active && "nav-link-active")}
             aria-current={active ? "page" : undefined}
-            {...(panel ? { prefetch: false } : {})}
+            prefetch={false}
           >
             <Icon aria-hidden="true" size={18} strokeWidth={1.7} />
             <span>{label}</span>

@@ -41,7 +41,7 @@ export function SystemBrowser({
   panelId,
   sources,
 }: {
-  panelId?: AgentPanelId | undefined;
+  panelId: AgentPanelId;
   sources: SystemSource[];
 }) {
   const first = sources[0];
@@ -108,24 +108,20 @@ export function SystemBrowser({
     setSkillPreview(null);
     setSkillPreviewState("loading");
     try {
-      const endpoint = panelId
-        ? scopedApiPath(panelId, `/system/context?id=${encodeURIComponent(id)}`)
-        : `/api/system/context?id=${encodeURIComponent(id)}`;
+      const endpoint = scopedApiPath(panelId, `/system/context?id=${encodeURIComponent(id)}`);
       const response = await fetch(endpoint, {
         cache: "no-store",
         signal: controller.signal,
       });
       const payload: unknown = await response.json();
-      const parsed = panelId
-        ? parseScopedPayload(payload, panelId, systemSourceSchema)
-        : systemSourceSchema.safeParse(payload).data;
+      const parsed = parseScopedPayload(payload, panelId, systemSourceSchema);
       if (!response.ok || !parsed || parsed.collection) throw new Error("invalid skill preview");
-      if (!controller.signal.aborted && (!panelId || isCurrentPanelLocation(panelId))) {
+      if (!controller.signal.aborted && isCurrentPanelLocation(panelId)) {
         setSkillPreview(parsed);
         setSkillPreviewState("idle");
       }
     } catch {
-      if (!controller.signal.aborted && (!panelId || isCurrentPanelLocation(panelId))) {
+      if (!controller.signal.aborted && isCurrentPanelLocation(panelId)) {
         setSkillPreviewState("error");
       }
     }

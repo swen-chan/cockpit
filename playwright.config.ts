@@ -1,12 +1,17 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const scenario = process.env.COCKPIT_E2E_SCENARIO ?? "legacy-ready";
+const scenario = process.env.COCKPIT_E2E_SCENARIO ?? "hermes-only";
 const scenarioTests: Readonly<Record<string, readonly string[]>> = Object.freeze({
-  "legacy-ready": Object.freeze([
+  "hermes-only": Object.freeze([
+    "single-panel.spec.ts",
+    "removed-routes.spec.ts",
     "http-security.spec.ts",
     "surfaces.spec.ts",
     "task12-usability.spec.ts",
   ]),
+  "codex-only": Object.freeze(["single-panel.spec.ts"]),
+  unconfigured: Object.freeze(["configuration.spec.ts"]),
+  "invalid-config": Object.freeze(["configuration.spec.ts"]),
   "dual-ready": Object.freeze([
     "scoped-navigation.spec.ts",
     "codex-tasks.spec.ts",

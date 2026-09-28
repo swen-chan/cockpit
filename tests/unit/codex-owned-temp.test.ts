@@ -30,8 +30,6 @@ const HOUR = 3_600_000;
 const child: OwnedProcess = {
   pid: 2_000_001,
   pgid: 2_000_001,
-  executableIdentity: "1:2:3",
-  startToken: "synthetic-spawn-1",
 };
 
 function gone() {
@@ -100,7 +98,7 @@ describe("Codex private operation ownership", () => {
     expect(() => assertOwnedTempDirectory(parent)).toThrow("Invalid Cockpit temporary ownership");
   });
 
-  it("records exact bounded process identities and cleans only after both PID and group are gone", () => {
+  it("records bounded PIDs and process groups and cleans only after both are gone", () => {
     const owned = createOwnedTemp({ parent });
     owned.recordProcess(child);
     owned.recordProcess({ ...child, pid: child.pid + 1, pgid: child.pid + 1 });
@@ -125,10 +123,6 @@ describe("Codex private operation ownership", () => {
     { ...child, pid: process.pid, pgid: process.pid },
     { ...child, pgid: child.pid + 1 },
     { ...child, pid: -2, pgid: -2 },
-    { ...child, executableIdentity: "/synthetic/private/executable" },
-    { ...child, executableIdentity: "1:2:3\n" },
-    { ...child, startToken: "" },
-    { ...child, startToken: "x".repeat(257) },
     { ...child, markerPath: "/synthetic/private/foreign" },
   ])("rejects invalid process records without changing the marker", (record) => {
     const owned = createOwnedTemp({ parent });

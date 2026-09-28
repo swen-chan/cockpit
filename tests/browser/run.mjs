@@ -609,14 +609,16 @@ async function runPlaywright(environment) {
   }
 }
 
-async function runScenario({ name, codexMode }) {
+async function runScenario({ name, hermesEnabled = false, codexMode, environment = {} }) {
   let codex;
   let hermes;
   let hermesSnapshot;
   let exitCode = 1;
   try {
-    hermes = createHermesFixture(`cockpit-browser-${name}-hermes-`);
-    hermesSnapshot = snapshotHermesFixtureSources(hermes);
+    if (hermesEnabled) {
+      hermes = createHermesFixture(`cockpit-browser-${name}-hermes-`);
+      hermesSnapshot = snapshotHermesFixtureSources(hermes);
+    }
     if (codexMode) codex = createCodexFixture(codexMode);
 
     const port = await reservePort();
@@ -628,8 +630,9 @@ async function runScenario({ name, codexMode }) {
     exitCode = await runPlaywright({
       ...process.env,
       ...EMPTY_SOURCE_ENVIRONMENT,
-      ...hermes.environment,
+      ...(hermes?.environment ?? {}),
       ...(codex?.environment ?? {}),
+      ...environment,
       COCKPIT_E2E_BASE_URL: baseURL,
       COCKPIT_E2E_CODEX_AUDIT_LOG: codex?.auditLog ?? "",
       COCKPIT_E2E_SCENARIO: name,
@@ -658,9 +661,22 @@ async function runScenario({ name, codexMode }) {
 }
 
 const scenarios = Object.freeze([
-  Object.freeze({ name: "legacy-ready", codexMode: null }),
-  Object.freeze({ name: "dual-ready", codexMode: "success" }),
-  Object.freeze({ name: "dual-codex-unavailable", codexMode: "wrong-version" }),
+  Object.freeze({ name: "hermes-only", hermesEnabled: true }),
+  Object.freeze({ name: "codex-only", codexMode: "success" }),
+  Object.freeze({ name: "dual-ready", hermesEnabled: true, codexMode: "success" }),
+  Object.freeze({
+    name: "dual-codex-unavailable",
+    hermesEnabled: true,
+    codexMode: "wrong-version",
+  }),
+  Object.freeze({ name: "unconfigured" }),
+  Object.freeze({
+    name: "invalid-config",
+    environment: Object.freeze({
+      COCKPIT_SOURCE_PRESET: "hermes-v2026.9.11",
+      COCKPIT_WORKSPACE_ROOT: "PRIVATE_INVALID_WORKSPACE_MARKER",
+    }),
+  }),
 ]);
 
 let exitCode = 0;

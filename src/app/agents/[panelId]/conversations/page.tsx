@@ -76,7 +76,9 @@ async function CodexTasksSurface({ panel }: { panel: CodexPanelDescriptor }) {
 
 export default async function AgentConversationsPage({ params }: Props) {
   const { panelId } = await params;
-  const { panel, supported } = requireScopedPage(panelId, "conversations");
+  const context = requireScopedPage(panelId, "conversations");
+  if (context.state !== "ready") return null;
+  const { panel, supported } = context;
   if (!supported) return <UnsupportedSurface panel={panel} surface="conversations" />;
   if (panel.runtime === "codex") {
     return (
