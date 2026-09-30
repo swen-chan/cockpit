@@ -8,7 +8,7 @@
 
 [![Verify](https://github.com/swen-chan/cockpit/actions/workflows/verify.yml/badge.svg?branch=main)](https://github.com/swen-chan/cockpit/actions/workflows/verify.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-c6ff3d?style=flat-square&labelColor=0e0e0e)](LICENSE)
-![Node.js 24+](https://img.shields.io/badge/Node.js-24%2B-c6ff3d?style=flat-square&labelColor=0e0e0e)
+![Node.js 24.15+ or 26+](https://img.shields.io/badge/Node.js-24.15%2B_or_26%2B-c6ff3d?style=flat-square&labelColor=0e0e0e)
 
 Cockpit brings local agent activity, conversations or development tasks,
 current context, and approved workspace files into one browser interface.
@@ -52,7 +52,7 @@ work, not project folders; a task's project label does not grant Files access.
 
 ### Requirements
 
-- Node.js 24 or newer
+- Node.js 24.15.0 or newer within 24.x, or Node.js 26 or newer
 - pnpm 10.28.1
 - For Claude Code: existing saved local sessions and an explicitly approved project
   workspace. Cockpit does not require a Claude executable, account, or API key.
@@ -134,7 +134,9 @@ acceptance; real-installation feedback is invited during the preview. See the
 [Claude reader notes](docs/claude-readonly-preview.md) for coverage, limits, and
 acceptance steps.
 
-#### Hermes and Codex together
+#### Multiple agents
+
+Combine the settings above for the agents you use. For example, Hermes and Codex:
 
 ```dotenv
 COCKPIT_WORKSPACE_ROOT=/absolute/path/to/your/hermes/workspace
@@ -146,11 +148,14 @@ COCKPIT_CODEX_HOME=/absolute/path/to/your/.codex
 COCKPIT_DEFAULT_PANEL=hermes
 ```
 
-Panels use `/agents/hermes`, `/agents/codex`, or
-`/agents/claude-code/conversations`, including installations with only one
-configured Agent. Its views append `/system`, `/conversations`,
-`/files`, or `/jobs` when supported; read APIs use the matching
+Every panel uses `/agents/<panel>`, where `<panel>` is `hermes`, `codex`, or
+`claude-code`, including installations with only one configured Agent. Overview
+uses that base URL; other supported views append `/system`, `/conversations`,
+`/files`, or `/jobs`. Claude's default entry is
+`/agents/claude-code/conversations`. Read APIs use the matching
 `/api/agents/<panel>/...` prefix.
+Claude pages share `?project=<configured-project-id>`; an omitted project selects
+the first configured project and is added to the URL.
 
 Opening `/` selects the last successfully opened panel in that browser. An
 explicit panel URL takes priority. Without a valid remembered selection, `/`

@@ -17,14 +17,14 @@ export async function GET(
     const { panelId } = await context.params;
     panel = resolveScopedPanel(panelId);
     requireScopedPanelSurface(panel, "conversations");
-    const { cursor, projectId } =
+    const { cursor, projectId, sessionId } =
       panel.runtime === "claude-code"
         ? parseClaudeQuery(request, "page")
-        : { ...parseScopedConversationPageQuery(request), projectId: null };
+        : { ...parseScopedConversationPageQuery(request), projectId: null, sessionId: null };
     const page = await loadAgentConversationPage(panel, {
       cursor,
       signal: request.signal,
-      ...(panel.runtime === "claude-code" ? { projectId } : {}),
+      ...(panel.runtime === "claude-code" ? { projectId, sessionId } : {}),
     });
     return scopedSuccessResponse(
       panel,

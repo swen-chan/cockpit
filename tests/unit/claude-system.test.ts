@@ -121,6 +121,34 @@ describe("Claude current System sources", () => {
     expect(JSON.stringify(snapshot)).not.toContain("OUTSIDE_PRIVATE_GUIDANCE");
   });
 
+  it("reads discovered filenames as literal text, including spaces and percent signs", async () => {
+    await write("workspace/.claude/rules/report%20draft.md", "Literal percent rule");
+    await write("workspace/.claude/rules/report draft.md", "Different space rule");
+    await write("workspace/.claude/skills/100% complete/SKILL.md", "Percent skill");
+
+    const snapshot = await loadClaudeSystem(panel);
+
+    expect(snapshot.sources).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relativePath: ".claude/rules/report%20draft.md",
+          content: "Literal percent rule",
+          state: "ready",
+        }),
+        expect.objectContaining({
+          relativePath: ".claude/rules/report draft.md",
+          content: "Different space rule",
+          state: "ready",
+        }),
+        expect.objectContaining({
+          relativePath: ".claude/skills/100% complete/SKILL.md",
+          content: "Percent skill",
+          state: "ready",
+        }),
+      ]),
+    );
+  });
+
   it("rejects aliases to excluded directories and omits hidden or credential-named documents", async () => {
     await write("workspace/.git/CLAUDE.md", "EXCLUDED_GIT_CONTENT");
     await symlink(path.join(workspace, ".git"), path.join(workspace, ".claude"));

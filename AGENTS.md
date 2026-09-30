@@ -69,7 +69,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ### Read-only boundary
 
-- Flag any code path that can write to Hermes files, databases, conversations,
+- Flag any code path that can write to agent files, databases, conversations,
   jobs, configuration, memory, or workspace content. Cockpit may only inspect
   approved sources through server-only, read-only adapters.
 - The sole v0.1 exception is SQLite-owned WAL coordination while a source is
@@ -86,6 +86,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   guidance, plugins, skills, and workspace content remain strictly read-only.
   Codex App Server may receive and modify only Cockpit-owned disposable snapshot
   files; this is not permission for application writes to the real Codex home.
+- Claude reads must stay within the explicitly configured project and user
+  roots. Its pinned SDK receives bounded saved-session entries through the
+  read-only store; native filesystem discovery, agent execution, and writes to
+  Claude sources are not permitted. Recorded paths never grant Files access.
 - Revoke that exception and require a new bit-for-bit read design if local
   permissions, backup tooling, or file watchers make coordination sidecars
   harmful, or before any remote or multi-user mode is accepted.
@@ -118,13 +122,13 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   access must stay inside the canonical approved root after exclusions are
   applied.
 
-### v0.1 local trust model
+### Shared local trust model
 
-- Cockpit v0.1 is loopback-only, single-user, and runs without elevated
+- Cockpit is loopback-only, single-user, and runs without elevated
   privileges. Server-defined Hermes internal sources and the local user's
   Hermes configuration are trusted inputs; a symlink used only by those fixed
   internal paths is not, by itself, a review finding.
-- Do flag any change that makes a Hermes home, database, or internal source path
+- Do flag any change that makes an agent home, database, or internal source path
   browser-configurable, remotely supplied, multi-user, plugin-controlled, or
   accessible with privileges the local user does not already have. Such a
   change must first introduce a new threat model and containment policy.

@@ -240,7 +240,10 @@ export function ClaudeSessionBrowser({
     try {
       const response = await fetch(
         withClaudeProject(
-          scopedApiPath(PANEL_ID, `/conversations?cursor=${encodeURIComponent(nextCursor)}`),
+          scopedApiPath(
+            PANEL_ID,
+            `/conversations?cursor=${encodeURIComponent(nextCursor)}${detail ? `&session=${encodeURIComponent(detail.id)}` : ""}`,
+          ),
           projectId,
         ),
         { cache: "no-store", signal: controller.signal },

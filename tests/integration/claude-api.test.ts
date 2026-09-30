@@ -199,6 +199,14 @@ it("keeps project sessions, cursors, System and Files in the same explicit scope
       ),
       context,
     ),
+    await listRoute.GET(
+      new Request(`${base}/conversations?project=notes&session=${atlas.items[0]!.id}`),
+      context,
+    ),
+    await listRoute.GET(
+      new Request(`${base}/conversations?project=atlas&session=task-Invalid`),
+      context,
+    ),
     await listRoute.GET(new Request(`${base}/conversations?project=unknown`), context),
     await systemRoute.GET(new Request(`${base}/system?project=atlas&project=notes`), context),
     await filesRoute.GET(
@@ -273,5 +281,59 @@ it("keeps project sessions, cursors, System and Files in the same explicit scope
     file,
   });
   for (const marker of [...forbiddenClaudeFixtureMarkers, fixture.root, fixture.userRoot])
+    expect(serialized).not.toContain(marker);
+});
+
+it("reuses only the selected session token across fresh lists and later pages", async () => {
+  const fixture = configureFixture();
+  const context = { params: Promise.resolve({ panelId: "claude-code" }) };
+  const overview = await readData(
+    await overviewRoute.GET(new Request(`${base}/overview?project=atlas`), context),
+    claudeOverviewSnapshotSchema,
+  );
+  const selected = overview.sessions!.items[0]!;
+  const fresh = await readData(
+    await listRoute.GET(new Request(`${base}/conversations?project=atlas`), context),
+    claudeSessionPageSchema,
+  );
+  expect(fresh.items[0]!.id).not.toBe(selected.id);
+  const restored = await readData(
+    await listRoute.GET(
+      new Request(`${base}/conversations?project=atlas&session=${selected.id}`),
+      context,
+    ),
+    claudeSessionPageSchema,
+  );
+  expect(restored.items[0]).toEqual(selected);
+  expect(restored.items[1]!.id).not.toBe(fresh.items[1]!.id);
+
+  const older = await readData(
+    await listRoute.GET(
+      new Request(`${base}/conversations?project=atlas&cursor=${fresh.nextCursor}`),
+      context,
+    ),
+    claudeSessionPageSchema,
+  );
+  const olderSelection = older.items[0]!;
+  const firstPage = await readData(
+    await listRoute.GET(
+      new Request(`${base}/conversations?project=atlas&session=${olderSelection.id}`),
+      context,
+    ),
+    claudeSessionPageSchema,
+  );
+  expect(firstPage.items.some(({ id }) => id === olderSelection.id)).toBe(false);
+  const nextPage = await readData(
+    await listRoute.GET(
+      new Request(
+        `${base}/conversations?project=atlas&cursor=${firstPage.nextCursor}&session=${olderSelection.id}`,
+      ),
+      context,
+    ),
+    claudeSessionPageSchema,
+  );
+  expect(nextPage.items[0]).toEqual(olderSelection);
+  const serialized = JSON.stringify({ restored, firstPage, nextPage });
+  for (const marker of [...forbiddenClaudeFixtureMarkers, ...fixture.ids, fixture.sessionRoot])
     expect(serialized).not.toContain(marker);
 });

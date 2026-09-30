@@ -44,6 +44,7 @@ export interface AgentReadOptions {
 
 export interface AgentPageOptions extends AgentReadOptions {
   readonly cursor?: string | null;
+  readonly sessionId?: string | null;
 }
 
 function codexWorkspaceRoot(panel: CodexPanelDescriptor): string {
@@ -108,7 +109,7 @@ export function loadAgentConversationPage(
 ) {
   if (panel.runtime === "codex") return loadCodexTaskPage(panel, options);
   if (panel.runtime === "claude-code")
-    return readClaudeSessionPage(panel, options.cursor, options.projectId);
+    return readClaudeSessionPage(panel, options.cursor, options.projectId, options.sessionId);
   return loadConversationPage(options.cursor ?? null, 5, scopedHermesConversationOptions(panel));
 }
 

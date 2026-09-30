@@ -1,6 +1,6 @@
 # Claude Code project inspection — v0.4.0 preview
 
-This candidate adds project-scoped Conversations, Overview, System, and Files.
+This preview provides project-scoped Conversations, Overview, System, and Files.
 Conversations remain the default entry. The maintainer accepted the local UI
 with fictional projects and chose to collect real-installation feedback during
 the Developer Preview. No real Claude installation has been accepted locally.
@@ -38,7 +38,7 @@ documents; they do not reconstruct historical files or prove task completion.
 There is no Jobs surface. Switching from Hermes Jobs opens Conversations and
 explains the change; other supported surfaces are preserved. Subagent transcripts,
 automatic worktree aggregation, cost/token totals, Hooks/MCP diagnostics, and live
-execution status remain outside this candidate.
+execution status remain outside this preview.
 
 ## Configuration and coverage
 
@@ -93,7 +93,8 @@ The SDK's public `getSessionInfo` and `getSessionMessages` APIs receive a
 request-local `sessionStore`. Cockpit opens a bounded approved source first and
 supplies those entries through `load`; `append` always refuses. The SDK selects
 the effective conversation chain. Cockpit joins returned message UUIDs to the
-already-read entries only for timestamps and the compaction-summary marker.
+already-read entries for timestamps, the compaction-summary marker, and metadata
+message filtering.
 
 Adopted: the upstream reader's branch, rewind, and compaction semantics, the
 existing Cockpit path checks, source guards, opaque selectors, redaction,

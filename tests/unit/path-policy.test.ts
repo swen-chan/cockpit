@@ -41,15 +41,11 @@ describe("approved workspace path policy", () => {
   afterEach(() => rmSync(fixtureRoot, { recursive: true, force: true }));
 
   it("opens and reads an existing allowed relative path through one pinned descriptor", async () => {
-    const result = await withExistingWorkspaceFile(
-      workspaceRoot,
-      "docs/safe%20file.md",
-      (file) => ({
-        content: readFileSync(file.descriptor, "utf8"),
-        relativePath: file.relativePath,
-        size: file.size,
-      }),
-    );
+    const result = await withExistingWorkspaceFile(workspaceRoot, "docs/safe file.md", (file) => ({
+      content: readFileSync(file.descriptor, "utf8"),
+      relativePath: file.relativePath,
+      size: file.size,
+    }));
     expect(result).toEqual({ content: "fixture", relativePath: "docs/safe file.md", size: 7 });
   });
 
@@ -61,7 +57,6 @@ describe("approved workspace path policy", () => {
     "docs//file",
     "bad\0file",
     "%2e%2e/outside",
-    "%252e%252e/outside",
   ])("rejects invalid or encoded traversal input %s", (candidate) =>
     expect(() => parseRelativePath(candidate)).toThrow(SourceSecurityError),
   );
@@ -117,15 +112,11 @@ describe("approved workspace path policy", () => {
     const outside = path.join(fixtureRoot, "outside.txt");
     writeFileSync(outside, "private fixture", "utf8");
 
-    const content = await withExistingWorkspaceFile(
-      workspaceRoot,
-      "docs/safe%20file.md",
-      (file) => {
-        renameSync(safePath, movedPath);
-        symlinkSync(outside, safePath);
-        return readFileSync(file.descriptor, "utf8");
-      },
-    );
+    const content = await withExistingWorkspaceFile(workspaceRoot, "docs/safe file.md", (file) => {
+      renameSync(safePath, movedPath);
+      symlinkSync(outside, safePath);
+      return readFileSync(file.descriptor, "utf8");
+    });
 
     expect(content).toBe("fixture");
   });
@@ -133,7 +124,7 @@ describe("approved workspace path policy", () => {
   it("keeps the descriptor open until an asynchronous reader finishes", async () => {
     const content = await withExistingWorkspaceFile(
       workspaceRoot,
-      "docs/safe%20file.md",
+      "docs/safe file.md",
       async (file) => {
         await Promise.resolve();
         return readFileSync(file.descriptor, "utf8");
@@ -349,7 +340,7 @@ describe("approved workspace path policy", () => {
 
   it("normalizes asynchronous reader failures", async () => {
     await expect(
-      withExistingWorkspaceFile(workspaceRoot, "docs/safe%20file.md", async () => {
+      withExistingWorkspaceFile(workspaceRoot, "docs/safe file.md", async () => {
         await Promise.resolve();
         throw new Error("private fixture detail");
       }),

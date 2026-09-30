@@ -1,6 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
+import { claudeProjectIdSchema } from "@/contracts/agents";
 
 import { SourceSecurityError } from "@/server/security/errors";
 import { SOURCE_LIMITS } from "@/server/security/limits";
@@ -112,20 +113,16 @@ export function parseClaudeQuery(
 ) {
   const allowedKeys = new Set([
     "project",
-    ...(kind === "page" ? ["cursor"] : []),
+    ...(kind === "page" ? ["cursor", "session"] : []),
     ...(["directory", "preview"].includes(kind) ? ["path"] : []),
   ]);
   const parsed = parseQuery(
     request,
     z
       .object({
-        project: z
-          .string()
-          .min(1)
-          .max(40)
-          .regex(/^[a-z0-9][a-z0-9-]*$/u)
-          .optional(),
+        project: claudeProjectIdSchema.optional(),
         cursor: z.string().min(1).max(6000).regex(scopedCursor).optional(),
+        session: scopedTaskIdSchema.optional(),
         path: z.string().max(SOURCE_LIMITS.maxPathCharacters).optional(),
       })
       .strict(),
@@ -136,6 +133,7 @@ export function parseClaudeQuery(
   return {
     projectId: parsed.project ?? null,
     cursor: parsed.cursor ?? null,
+    sessionId: parsed.session ?? null,
     path: parsed.path ?? "",
   };
 }

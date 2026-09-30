@@ -306,6 +306,10 @@ if (scenario === "claude-only") {
     await expect(owner).toBeInViewport();
     await expect(owner.locator(".claude-activity-disclosure")).toHaveAttribute("open", "");
     await expect(page.locator("#claude-session-title")).toHaveText("Inspect saved changes");
+    await expect(page.getByRole("button", { name: /Inspect saved changes/u })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await expect(
       page.getByText("The selected saved changes are ready to inspect.", { exact: false }),
     ).toBeVisible();
@@ -328,6 +332,13 @@ if (scenario === "claude-only") {
       page.getByRole("heading", { name: "Recent conversations", exact: true }),
     ).toBeVisible();
     await expect(page.getByRole("link", { name: /Plan the release notes/u })).toBeVisible();
+    await page.getByRole("link", { name: /Plan the release notes/u }).click();
+    await expect(page.locator("#claude-session-title")).toHaveText("Plan the release notes");
+    await expect(page.getByRole("button", { name: /Plan the release notes/u })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await navigation.getByRole("link", { name: "Overview", exact: true }).click();
     await page.getByRole("link", { name: "Inspect System", exact: true }).click();
     await expect(project).toHaveValue("notes");
     await expect(page.getByRole("region", { name: "CLAUDE.md preview" })).toContainText(
@@ -354,6 +365,41 @@ if (scenario === "claude-only") {
     );
     for (const category of ["Instructions", "Memory", "Skills", "Subagents"])
       await expect(page.getByRole("region", { name: `${category} sources` })).toBeVisible();
+    await expectPrivateContentHidden(page, monitor);
+  });
+
+  test("restores an older selected session when its page is loaded after a deep link", async ({
+    page,
+  }) => {
+    const monitor = monitorPage(page);
+    await page.goto(conversationsPath);
+    await page.getByRole("button", { name: "Show more", exact: true }).click();
+    await page.getByRole("button", { name: /Saved session 6/u }).click();
+    await expect(page.locator("#claude-session-title")).toHaveText("Saved session 6");
+    await page.reload();
+    await expect(page.locator("#claude-session-title")).toHaveText("Saved session 6");
+    await expect(page.getByRole("button", { name: /Saved session 6/u })).toHaveCount(0);
+    await page.getByRole("button", { name: "Show more", exact: true }).click();
+    await expect(page.getByRole("button", { name: /Saved session 6/u })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expectPrivateContentHidden(page, monitor);
+  });
+
+  test("keeps the session list and pagination usable when a saved selector has expired", async ({
+    page,
+  }) => {
+    const monitor = monitorPage(page);
+    await page.goto(`${conversationsPath}?project=atlas&session=task-Expired`);
+    await expect(page.getByRole("button", { name: /Inspect saved changes/u })).toBeVisible();
+    await expect(
+      page.getByText("The requested relative path is invalid.", { exact: true }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Show more", exact: true }).click();
+    await expect(page.getByRole("button", { name: /Saved session 6/u })).toBeVisible();
+    await page.getByRole("button", { name: /Inspect saved changes/u }).click();
+    await expect(page.locator("#claude-session-title")).toHaveText("Inspect saved changes");
     await expectPrivateContentHidden(page, monitor);
   });
 

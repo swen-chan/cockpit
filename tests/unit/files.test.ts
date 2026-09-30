@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { workspaceDirectorySchema, workspaceFileSchema } from "@/contracts/source-result";
 import { readWorkspaceDirectory, readWorkspacePreview } from "@/server/adapters/files";
+import { parseDirectoryQuery, parsePreviewQuery } from "@/server/http/query";
 import { SOURCE_LIMITS } from "@/server/security/limits";
 
 describe("workspace files adapter", () => {
@@ -101,6 +102,41 @@ describe("workspace files adapter", () => {
       "\u202e",
     ])
       expect(JSON.stringify(preview)).not.toContain(privateFragment);
+  });
+
+  it("opens the exact listed percent filename after its browser query round trip", async () => {
+    const files = new Map([
+      ["report%20draft.md", "Literal percent filename"],
+      ["report draft.md", "Different space filename"],
+      ["100%.md", "Percent filename"],
+    ]);
+    for (const [name, content] of files) writeFileSync(path.join(workspaceRoot, name), content);
+    const directory = await readWorkspaceDirectory(workspaceRoot);
+
+    for (const [name, content] of files) {
+      const entry = directory.items.find((file) => file.name === name)!;
+      expect(entry).toBeDefined();
+      const request = new Request(
+        `http://localhost/api/agents/hermes/files/preview?${new URLSearchParams({ path: entry.path })}`,
+      );
+      const preview = await readWorkspacePreview(workspaceRoot, parsePreviewQuery(request));
+      expect(preview).toMatchObject({ path: name, name, content, previewState: "available" });
+    }
+  });
+
+  it("keeps percent directory names literal while navigating and previewing their files", async () => {
+    for (const name of ["docs%20notes", "docs notes"]) {
+      mkdirSync(path.join(workspaceRoot, name));
+      writeFileSync(path.join(workspaceRoot, name, "report.md"), name);
+    }
+    const request = new Request(
+      `http://localhost/api/agents/hermes/files?${new URLSearchParams({ path: "docs%20notes" })}`,
+    );
+    const directory = await readWorkspaceDirectory(workspaceRoot, parseDirectoryQuery(request));
+    expect(directory.path).toBe("docs%20notes");
+    const entry = directory.items[0]!;
+    const preview = await readWorkspacePreview(workspaceRoot, entry.path);
+    expect(preview).toMatchObject({ path: "docs%20notes/report.md", content: "docs%20notes" });
   });
 
   it("fails a preview closed when a credential-shaped residual cannot be tokenized", async () => {
