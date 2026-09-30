@@ -68,7 +68,8 @@ function validScope(scope: PanelTokenScope): boolean {
   return (
     scope.panelId === scope.runtime &&
     ((scope.runtime === "hermes" && scope.adapterVersion === "hermes-v1") ||
-      (scope.runtime === "codex" && scope.adapterVersion === "codex-0.145.0"))
+      (scope.runtime === "codex" && scope.adapterVersion === "codex-0.145.0") ||
+      (scope.runtime === "claude-code" && scope.adapterVersion === "claude-sdk-0.3.283"))
   );
 }
 
@@ -83,7 +84,7 @@ function associatedData(kind: TokenKind, scope: PanelTokenScope): Buffer {
 function rawLimit(kind: TokenKind, scope: PanelTokenScope): number {
   if (!validScope(scope)) return reject();
   if (kind === "cursor") return CURSOR_RAW_BYTES;
-  return scope.runtime === "codex" ? CODEX_TASK_RAW_BYTES : HERMES_TASK_RAW_BYTES;
+  return scope.runtime === "hermes" ? HERMES_TASK_RAW_BYTES : CODEX_TASK_RAW_BYTES;
 }
 
 function validateRaw(kind: TokenKind, scope: PanelTokenScope, value: string): string {

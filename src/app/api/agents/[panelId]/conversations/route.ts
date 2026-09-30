@@ -1,3 +1,5 @@
+import { parseClaudeQuery } from "@/server/http/query";
+import { claudeSessionPageSchema } from "@/contracts/claude";
 import { codexTaskPageSchema } from "@/contracts/codex";
 import { conversationPageSchema } from "@/contracts/source-result";
 import { parseScopedConversationPageQuery } from "@/server/http/query";
@@ -15,12 +17,23 @@ export async function GET(
     const { panelId } = await context.params;
     panel = resolveScopedPanel(panelId);
     requireScopedPanelSurface(panel, "conversations");
-    const { cursor } = parseScopedConversationPageQuery(request);
-    const page = await loadAgentConversationPage(panel, { cursor, signal: request.signal });
+    const { cursor, projectId } =
+      panel.runtime === "claude-code"
+        ? parseClaudeQuery(request, "page")
+        : { ...parseScopedConversationPageQuery(request), projectId: null };
+    const page = await loadAgentConversationPage(panel, {
+      cursor,
+      signal: request.signal,
+      ...(panel.runtime === "claude-code" ? { projectId } : {}),
+    });
     return scopedSuccessResponse(
       panel,
       page,
-      panel.runtime === "codex" ? codexTaskPageSchema : conversationPageSchema,
+      panel.runtime === "codex"
+        ? codexTaskPageSchema
+        : panel.runtime === "claude-code"
+          ? claudeSessionPageSchema
+          : conversationPageSchema,
     );
   } catch (error) {
     return scopedFailureResponse(error, {

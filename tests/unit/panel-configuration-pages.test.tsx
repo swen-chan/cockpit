@@ -29,6 +29,9 @@ vi.mock("@/server/services/system", () => ({ loadSystemPageData: readers.read })
 
 beforeEach(() => {
   for (const key of [
+    "COCKPIT_CLAUDE_SESSION_ROOT",
+    "COCKPIT_CLAUDE_PROJECTS",
+    "COCKPIT_CLAUDE_USER_ROOT",
     "COCKPIT_CODEX_HOME",
     "COCKPIT_CODEX_WORKSPACE_ROOT",
     "COCKPIT_CODEX_CUSTOM_GUIDANCE",
@@ -97,4 +100,22 @@ describe("configuration page boundaries", () => {
       digest: expect.stringContaining("/agents/hermes"),
     });
   });
+});
+
+it("opens Claude's Conversations from the root without source reads", async () => {
+  vi.stubEnv(
+    "COCKPIT_CLAUDE_PROJECTS",
+    JSON.stringify([
+      {
+        id: "atlas",
+        name: "Atlas",
+        sessionRoot: "/synthetic/claude-sessions",
+        workspaceRoot: "/synthetic/workspace",
+      },
+    ]),
+  );
+  await expect(HomePage()).rejects.toMatchObject({
+    digest: expect.stringContaining("/agents/claude-code/conversations"),
+  });
+  expect(readers.read).not.toHaveBeenCalled();
 });

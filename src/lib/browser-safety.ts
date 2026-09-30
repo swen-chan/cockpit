@@ -5,8 +5,8 @@ const endpointTokenPattern = /[^\s<>'"`]+/gu;
 const credentialParameterPattern =
   /^(?:access[-_]?token|api[-_]?key|auth[-_]?token|authorization|client[-_]?secret|cookie|credential|id[-_]?token|pass[-_]?(?:phrase|word)|password|private[-_]?key|refresh[-_]?token|secret|session[-_]?token|token)$/iu;
 const secretValuePatterns = [
-  /(?<![A-Za-z0-9])(?:access[-_ ]?token|api[-_ ]?key|auth[-_ ]?token|authorization|client[-_ ]?secret|cookie|credential|id[-_ ]?token|pass[-_ ]?phrase|password|private[-_ ]?key|refresh[-_ ]?token|secret|session[-_ ]?token|token)\s*[:=]\s*(?:"[^"\r\n]*"|'[^'\r\n]*'|[^\s,\r\n}]+)/giu,
   /(?<![A-Za-z0-9])Bearer\s+[A-Za-z0-9._~+/=-]{8,}/giu,
+  /(?<![A-Za-z0-9])["']?(?:access[-_ ]?token|api[-_ ]?key|auth[-_ ]?token|authorization|client[-_ ]?secret|cookie|credential|id[-_ ]?token|pass[-_ ]?phrase|password|private[-_ ]?key|refresh[-_ ]?token|secret|session[-_ ]?token|token)["']?\s*[:=]\s*(?:"(?:\\[^\r\n]|[^"\\\r\n])*"|'(?:\\[^\r\n]|[^'\\\r\n])*'|[^\s,\r\n}]+)/giu,
   /(?<![A-Za-z0-9])(?:gh[pousr]_|github_pat_)[A-Za-z0-9_-]{8,}/giu,
   /(?<![A-Za-z0-9])(?:sk-(?:(?:proj|svcacct|ant-api\d+|or-v1)-)[A-Za-z0-9_-]{8,}|sk[-_][A-Za-z0-9]{16,}|sk_(?:live|test)_[A-Za-z0-9]{16,})(?![A-Za-z0-9_-])/giu,
   /(?<![A-Za-z0-9])(?:AKIA|ASIA)[A-Z0-9]{16}(?![A-Z0-9])/gu,

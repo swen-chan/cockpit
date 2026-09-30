@@ -149,6 +149,18 @@ describe("browser text redaction", () => {
     expect(redactBrowserText("password = 'private words'")).toBe("[REDACTED]");
   });
 
+  it("redacts quoted JSON credential assignments including escaped quotes", () => {
+    const value = JSON.stringify({
+      password: 'private"value',
+      api_key: "private key words",
+      safe: "visible",
+    });
+    const cleaned = redactBrowserText(value);
+    expect(cleaned).not.toContain("private");
+    expect(cleaned).toContain('"safe":"visible"');
+    expect(containsSecrets(value)).toBe(true);
+  });
+
   it("redacts wrapped and mixed credential-bearing endpoints without hiding safe text", () => {
     const result = redactBrowserText(
       [
@@ -165,5 +177,12 @@ describe("browser text redaction", () => {
     expect(result).toContain("safe suffix");
     for (const secret of ["encoded-secret", "paren-secret", "markdown-secret", "relative-secret"])
       expect(result).not.toContain(secret);
+  });
+});
+
+describe("authorization credential redaction order", () => {
+  it("redacts the Bearer value before removing its Authorization label", () => {
+    const raw = "Authorization: Bearer sk-synthetic-secret-value";
+    expect(redactBrowserText(raw)).toBe("[REDACTED]");
   });
 });

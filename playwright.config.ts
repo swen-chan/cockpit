@@ -10,6 +10,10 @@ const scenarioTests: Readonly<Record<string, readonly string[]>> = Object.freeze
     "task12-usability.spec.ts",
   ]),
   "codex-only": Object.freeze(["single-panel.spec.ts"]),
+  "claude-only": Object.freeze(["claude.spec.ts"]),
+  "triple-ready": Object.freeze(["claude.spec.ts"]),
+  "claude-empty": Object.freeze(["claude.spec.ts"]),
+  "claude-missing": Object.freeze(["claude.spec.ts"]),
   unconfigured: Object.freeze(["configuration.spec.ts"]),
   "invalid-config": Object.freeze(["configuration.spec.ts"]),
   "dual-ready": Object.freeze([
@@ -24,11 +28,11 @@ if (!scenarioMatch) throw new Error(`Unknown synthetic browser scenario: ${scena
 const testMatch = [...scenarioMatch];
 
 const baseURL = process.env.COCKPIT_E2E_BASE_URL ?? "http://127.0.0.1:3000";
-const webServerCommand =
-  process.env.COCKPIT_E2E_WEB_COMMAND ?? (process.env.CI ? "pnpm start" : "pnpm dev");
+const webServerCommand = process.env.COCKPIT_E2E_WEB_COMMAND ?? "pnpm start";
 
 export default defineConfig({
   testDir: "./tests/browser",
+  outputDir: `./test-results/${scenario}`,
   testMatch,
   fullyParallel: false,
   failOnFlakyTests: Boolean(process.env.CI),
@@ -38,7 +42,7 @@ export default defineConfig({
   reporter: "list",
   use: {
     baseURL,
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
   },
   projects: [
     {

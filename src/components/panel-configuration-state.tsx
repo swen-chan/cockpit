@@ -14,7 +14,7 @@ export function PanelConfigurationStateView({
           <p className="page-description">
             {invalid
               ? "Correct the configuration below, then restart Cockpit."
-              : "Configure Hermes or Codex in .env.local, then restart Cockpit."}
+              : "Configure Hermes, Codex, or Claude Code in .env.local, then restart Cockpit."}
           </p>
         </div>
       </header>

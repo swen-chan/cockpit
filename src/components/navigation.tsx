@@ -14,6 +14,7 @@ import { usePathname } from "next/navigation";
 
 import type { AgentSurface, PublicAgentPanel } from "@/contracts/agents";
 import { panelSurfaceHref, panelSurfaceLabel } from "@/lib/panel-navigation";
+import { withClaudeProject } from "@/lib/claude-navigation";
 import { cn } from "@/lib/cn";
 
 const icons: Readonly<Record<AgentSurface, LucideIcon>> = Object.freeze({
@@ -24,10 +25,10 @@ const icons: Readonly<Record<AgentSurface, LucideIcon>> = Object.freeze({
   jobs: CalendarClock,
 });
 
-export function Navigation({ panel }: { panel: PublicAgentPanel }) {
+export function Navigation({ panel, projectId }: { panel: PublicAgentPanel; projectId?: string }) {
   const pathname = usePathname();
   const items = panel.surfaces.map((surface) => ({
-    href: panelSurfaceHref(panel.id, surface) as Route,
+    href: panelSurfaceHref(panel.id, surface),
     label: panelSurfaceLabel(panel, surface),
     surface,
   }));
@@ -40,7 +41,7 @@ export function Navigation({ panel }: { panel: PublicAgentPanel }) {
 
         return (
           <Link
-            href={href}
+            href={withClaudeProject(href, projectId) as Route}
             key={surface}
             className={cn("nav-link", active && "nav-link-active")}
             aria-current={active ? "page" : undefined}

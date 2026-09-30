@@ -1,3 +1,4 @@
+import { parseClaudeQuery } from "@/server/http/query";
 import { workspaceFileSchema } from "@/contracts/source-result";
 import { parsePreviewQuery } from "@/server/http/query";
 import { scopedFailureResponse, scopedSuccessResponse } from "@/server/http/scoped-route";
@@ -14,8 +15,11 @@ export async function GET(
     const { panelId } = await context.params;
     panel = resolveScopedPanel(panelId);
     requireScopedPanelSurface(panel, "files");
-    const relativePath = parsePreviewQuery(request);
-    const file = await loadAgentWorkspacePreview(panel, relativePath);
+    const { path: relativePath, projectId } =
+      panel.runtime === "claude-code"
+        ? parseClaudeQuery(request, "preview")
+        : { path: parsePreviewQuery(request), projectId: null };
+    const file = await loadAgentWorkspacePreview(panel, relativePath, projectId);
     return scopedSuccessResponse(panel, file, workspaceFileSchema);
   } catch (error) {
     return scopedFailureResponse(error, {

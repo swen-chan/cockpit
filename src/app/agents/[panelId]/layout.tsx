@@ -25,7 +25,15 @@ export default async function AgentLayout({
   const publicPanel = registry.publicPanels.find((candidate) => candidate.id === panel.id);
   if (!publicPanel) throw new SourceSecurityError("source_malformed");
   return (
-    <ScopedAppShell activePanel={publicPanel} panels={registry.publicPanels}>
+    <ScopedAppShell
+      activePanel={publicPanel}
+      panels={registry.publicPanels}
+      projects={
+        panel.runtime === "claude-code"
+          ? panel.configuration.projects.map(({ id, name }) => ({ id, name }))
+          : []
+      }
+    >
       {children}
     </ScopedAppShell>
   );

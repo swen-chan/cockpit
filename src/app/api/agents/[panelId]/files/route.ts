@@ -1,3 +1,4 @@
+import { parseClaudeQuery } from "@/server/http/query";
 import { workspaceDirectorySchema } from "@/contracts/source-result";
 import { parseDirectoryQuery } from "@/server/http/query";
 import { scopedFailureResponse, scopedSuccessResponse } from "@/server/http/scoped-route";
@@ -11,8 +12,11 @@ export async function GET(request: Request, context: RouteContext<"/api/agents/[
     const { panelId } = await context.params;
     panel = resolveScopedPanel(panelId);
     requireScopedPanelSurface(panel, "files");
-    const relativePath = parseDirectoryQuery(request);
-    const directory = await loadAgentWorkspaceDirectory(panel, relativePath);
+    const { path: relativePath, projectId } =
+      panel.runtime === "claude-code"
+        ? parseClaudeQuery(request, "directory")
+        : { path: parseDirectoryQuery(request), projectId: null };
+    const directory = await loadAgentWorkspaceDirectory(panel, relativePath, projectId);
     return scopedSuccessResponse(panel, directory, workspaceDirectorySchema);
   } catch (error) {
     return scopedFailureResponse(error, { sourceId: "workspace", ...(panel ? { panel } : {}) });

@@ -27,4 +27,11 @@ describe("scoped client boundary", () => {
     expect(isCurrentPanelLocation("codex")).toBe(true);
     expect(isCurrentPanelLocation("hermes")).toBe(false);
   });
+  it("rejects an old project response after switching projects or returning to the default URL", () => {
+    window.history.replaceState({}, "", "/agents/claude-code/files?project=notes");
+    expect(isCurrentPanelLocation("claude-code", "notes")).toBe(true);
+    expect(isCurrentPanelLocation("claude-code", "atlas")).toBe(false);
+    window.history.replaceState({}, "", "/agents/claude-code/files");
+    expect(isCurrentPanelLocation("claude-code", "notes")).toBe(false);
+  });
 });

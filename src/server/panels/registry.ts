@@ -1,9 +1,11 @@
 import "server-only";
 
 import path from "node:path";
+import { z } from "zod";
 
 import {
   agentPanelIdSchema,
+  claudeProjectIdSchema,
   publicAgentPanelSchema,
   type AgentPanelId,
   type AgentRuntime,
@@ -13,12 +15,13 @@ import {
 import { HERMES_SOURCE_PRESET_ID } from "@/server/config/source-manifest";
 import { SourceSecurityError } from "@/server/security/errors";
 import { parseRelativePath } from "@/server/security/path-policy";
+import { cleanBrowserText, isWellFormedUnicode } from "@/server/security/safe-text";
 
-export type PanelAdapterVersion = "hermes-v1" | "codex-0.145.0";
+export type PanelAdapterVersion = "hermes-v1" | "codex-0.145.0" | "claude-sdk-0.3.283";
 
 interface PanelBase {
   readonly id: AgentPanelId;
-  readonly name: "Hermes" | "Codex";
+  readonly name: "Hermes" | "Codex" | "Claude Code";
   readonly runtime: AgentRuntime;
   readonly adapterVersion: PanelAdapterVersion;
   readonly surfaces: readonly AgentSurface[];
@@ -50,7 +53,27 @@ export interface CodexPanelDescriptor extends PanelBase {
   };
 }
 
-export type AgentPanelDescriptor = HermesPanelDescriptor | CodexPanelDescriptor;
+export interface ClaudeProjectDescriptor {
+  readonly id: string;
+  readonly name: string;
+  readonly sessionRoot: string;
+  readonly workspaceRoot: string;
+  readonly memoryRoot?: string;
+}
+
+export interface ClaudePanelDescriptor extends PanelBase {
+  readonly id: "claude-code";
+  readonly name: "Claude Code";
+  readonly runtime: "claude-code";
+  readonly adapterVersion: "claude-sdk-0.3.283";
+  readonly configuration: {
+    readonly projects: readonly ClaudeProjectDescriptor[];
+    readonly userRoot?: string;
+  };
+}
+
+export type AgentPanelDescriptor =
+  HermesPanelDescriptor | CodexPanelDescriptor | ClaudePanelDescriptor;
 
 export interface PanelRegistry {
   readonly state: "ready";
@@ -60,6 +83,9 @@ export interface PanelRegistry {
 }
 
 const CONFIGURATION_KEYS = [
+  "COCKPIT_CLAUDE_SESSION_ROOT",
+  "COCKPIT_CLAUDE_PROJECTS",
+  "COCKPIT_CLAUDE_USER_ROOT",
   "COCKPIT_CODEX_HOME",
   "COCKPIT_CODEX_WORKSPACE_ROOT",
   "COCKPIT_CODEX_CUSTOM_GUIDANCE",
@@ -95,6 +121,41 @@ const CODEX_FILES_SURFACES = Object.freeze<AgentSurface[]>([
 ]);
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f-\u009f]/u;
 const MAX_PATH_CHARACTERS = 4_096;
+const MAX_CLAUDE_CONFIGURATION_BYTES = 200 * 1_024;
+
+const claudeRootSchema = z
+  .string()
+  .min(1)
+  .max(MAX_PATH_CHARACTERS)
+  .refine(
+    (value) =>
+      isWellFormedUnicode(value) &&
+      !CONTROL_CHARACTERS.test(value) &&
+      value === value.trim() &&
+      path.isAbsolute(value) &&
+      path.normalize(value) !== path.parse(value).root,
+  );
+const claudeProjectsSchema = z
+  .array(
+    z
+      .object({
+        id: claudeProjectIdSchema.refine((value) => cleanBrowserText(value).text === value),
+        name: z
+          .string()
+          .min(1)
+          .max(80)
+          .refine(
+            (value) => !CONTROL_CHARACTERS.test(value) && cleanBrowserText(value).text === value,
+          ),
+        sessionRoot: claudeRootSchema,
+        workspaceRoot: claudeRootSchema,
+        memoryRoot: claudeRootSchema.optional(),
+      })
+      .strict(),
+  )
+  .min(1)
+  .max(12)
+  .refine((projects) => new Set(projects.map(({ id }) => id)).size === projects.length);
 
 function invalidConfiguration(
   key: PanelConfigurationKey,
@@ -116,10 +177,23 @@ function publicPanel(panel: AgentPanelDescriptor): PublicAgentPanel {
 export function resolvePanelRegistry(
   environment: Readonly<Record<string, string | undefined>> = process.env,
 ): PanelRegistryResult {
+  if (environment.COCKPIT_CLAUDE_SESSION_ROOT) {
+    return invalidConfiguration(
+      "COCKPIT_CLAUDE_SESSION_ROOT",
+      "Remove COCKPIT_CLAUDE_SESSION_ROOT and configure COCKPIT_CLAUDE_PROJECTS instead.",
+    );
+  }
   const values: Partial<Record<PanelConfigurationKey, string>> = {};
   for (const key of CONFIGURATION_KEYS) {
     const raw = environment[key];
     if (raw === undefined || raw === "") continue;
+    if (key === "COCKPIT_CLAUDE_PROJECTS") {
+      if (Buffer.byteLength(raw, "utf8") > MAX_CLAUDE_CONFIGURATION_BYTES) {
+        return invalidConfiguration(key, "Use at most 200 KiB of project configuration JSON.");
+      }
+      values[key] = raw;
+      continue;
+    }
     const maximum =
       key === "COCKPIT_SOURCE_PRESET"
         ? 100
@@ -133,6 +207,46 @@ export function resolvePanelRegistry(
       );
     }
     values[key] = raw;
+  }
+
+  let claudeProjects: readonly ClaudeProjectDescriptor[] | undefined;
+  if (values.COCKPIT_CLAUDE_PROJECTS) {
+    let decoded: unknown;
+    try {
+      decoded = JSON.parse(values.COCKPIT_CLAUDE_PROJECTS);
+    } catch {
+      return invalidConfiguration(
+        "COCKPIT_CLAUDE_PROJECTS",
+        "Use valid project configuration JSON.",
+      );
+    }
+    const parsed = claudeProjectsSchema.safeParse(decoded);
+    if (!parsed.success) {
+      return invalidConfiguration(
+        "COCKPIT_CLAUDE_PROJECTS",
+        "Set 1–12 projects with unique short lowercase ids, safe names, absolute sessionRoot and workspaceRoot paths, and an optional absolute memoryRoot. Filesystem roots are not allowed.",
+      );
+    }
+    claudeProjects = Object.freeze(
+      parsed.data.map(({ memoryRoot, ...project }) =>
+        Object.freeze({ ...project, ...(memoryRoot !== undefined ? { memoryRoot } : {}) }),
+      ),
+    );
+  }
+  if (values.COCKPIT_CLAUDE_USER_ROOT && !claudeProjects) {
+    return invalidConfiguration(
+      "COCKPIT_CLAUDE_PROJECTS",
+      "Configure Claude projects before setting COCKPIT_CLAUDE_USER_ROOT.",
+    );
+  }
+  if (
+    values.COCKPIT_CLAUDE_USER_ROOT &&
+    !claudeRootSchema.safeParse(values.COCKPIT_CLAUDE_USER_ROOT).success
+  ) {
+    return invalidConfiguration(
+      "COCKPIT_CLAUDE_USER_ROOT",
+      "Use an absolute path other than the filesystem root.",
+    );
   }
 
   const codexHome = values.COCKPIT_CODEX_HOME;
@@ -253,6 +367,21 @@ export function resolvePanelRegistry(
       }),
     );
   }
+  if (claudeProjects) {
+    panels.push(
+      Object.freeze({
+        id: "claude-code",
+        name: "Claude Code",
+        runtime: "claude-code",
+        adapterVersion: "claude-sdk-0.3.283",
+        surfaces: Object.freeze<AgentSurface[]>(["conversations", "overview", "system", "files"]),
+        configuration: Object.freeze({
+          projects: claudeProjects,
+          ...(values.COCKPIT_CLAUDE_USER_ROOT ? { userRoot: values.COCKPIT_CLAUDE_USER_ROOT } : {}),
+        }),
+      }),
+    );
+  }
   const configuredDefault = values.COCKPIT_DEFAULT_PANEL;
   const requestedDefault = agentPanelIdSchema.safeParse(configuredDefault).data;
   if (
@@ -261,7 +390,7 @@ export function resolvePanelRegistry(
   ) {
     return invalidConfiguration(
       "COCKPIT_DEFAULT_PANEL",
-      "Choose a configured panel: hermes or codex.",
+      "Choose a configured panel: hermes, codex, or claude-code.",
     );
   }
   const firstPanel = panels[0];

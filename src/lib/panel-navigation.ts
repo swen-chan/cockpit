@@ -41,12 +41,16 @@ export function surfaceFromPathname(pathname: string): AgentSurface {
   return "overview";
 }
 
+export function panelDefaultSurface(panel: Pick<PublicAgentPanel, "surfaces">): AgentSurface {
+  return panel.surfaces[0]!;
+}
+
 export function switchTarget(
   target: PublicAgentPanel,
   currentSurface: AgentSurface,
 ): { href: string; fallback: boolean } {
   const fallback = !target.surfaces.includes(currentSurface);
-  const targetSurface = fallback ? "overview" : currentSurface;
+  const targetSurface = fallback ? panelDefaultSurface(target) : currentSurface;
   return {
     href: `${panelSurfaceHref(target.id, targetSurface)}?from=${currentSurface}`,
     fallback,

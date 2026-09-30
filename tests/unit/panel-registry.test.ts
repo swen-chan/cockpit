@@ -232,3 +232,37 @@ describe("fixed Agent panel registry", () => {
     );
   });
 });
+
+it("enables Claude project surfaces from explicit project configuration", () => {
+  const root = `${missingRoot}/claude-project`;
+  const projects = JSON.stringify([
+    { id: "project", name: "Project", sessionRoot: root, workspaceRoot: `${root}/workspace` },
+  ]);
+  const alone = readyRegistry({ COCKPIT_CLAUDE_PROJECTS: projects });
+  expect(alone.defaultPanelId).toBe("claude-code");
+  expect(alone.publicPanels).toEqual([
+    {
+      id: "claude-code",
+      name: "Claude Code",
+      runtime: "claude-code",
+      surfaces: ["conversations", "overview", "system", "files"],
+    },
+  ]);
+  expect(JSON.stringify(alone.publicPanels)).not.toContain(root);
+  const triple = readyRegistry({
+    ...hermesConfiguration,
+    COCKPIT_CODEX_HOME: `${missingRoot}/codex`,
+    COCKPIT_CLAUDE_PROJECTS: projects,
+    COCKPIT_DEFAULT_PANEL: "claude-code",
+  });
+  expect(triple.panels.map(({ id }) => id)).toEqual(["hermes", "codex", "claude-code"]);
+  expect(triple.defaultPanelId).toBe("claude-code");
+  for (const value of ["relative/root", "/", " /synthetic/root", root]) {
+    expect(resolvePanelRegistry({ COCKPIT_CLAUDE_SESSION_ROOT: value })).toMatchObject({
+      state: "invalid",
+      key: "COCKPIT_CLAUDE_SESSION_ROOT",
+      requirement:
+        "Remove COCKPIT_CLAUDE_SESSION_ROOT and configure COCKPIT_CLAUDE_PROJECTS instead.",
+    });
+  }
+});

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { Route } from "next";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useRef, type MouseEvent as ReactMouseEvent } from "react";
 
 import {
@@ -11,7 +11,14 @@ import {
   type AgentSurface,
   type PublicAgentPanel,
 } from "@/contracts/agents";
-import { panelSurfaceHref, surfaceFromPathname, switchTarget } from "@/lib/panel-navigation";
+import {
+  panelDefaultSurface,
+  panelSurfaceHref,
+  panelSurfaceLabel,
+  surfaceFromPathname,
+  switchTarget,
+} from "@/lib/panel-navigation";
+import { withClaudeProject } from "@/lib/claude-navigation";
 import { cn } from "@/lib/cn";
 
 // Longer than the bounded Codex probe + snapshot + operation path, while still
@@ -48,6 +55,7 @@ export function AgentPanelNavigation({
   panels: readonly PublicAgentPanel[];
 }) {
   const pathname = usePathname();
+  const projectId = useSearchParams().get("project") ?? undefined;
   const activeLink = useRef<HTMLAnchorElement>(null);
   const announcement = useRef<HTMLParagraphElement>(null);
   const currentSurface = surfaceFromPathname(pathname);
@@ -79,11 +87,11 @@ export function AgentPanelNavigation({
     const sourceLabel = parsedFrom.data[0]!.toUpperCase() + parsedFrom.data.slice(1);
     if (announcement.current) {
       announcement.current.textContent = fellBack
-        ? `Now viewing ${activePanel.name} Overview; ${sourceLabel} is not supported.`
+        ? `Now viewing ${activePanel.name} ${panelSurfaceLabel(activePanel, panelDefaultSurface(activePanel))}; ${sourceLabel} is not supported.`
         : `Now viewing ${activePanel.name}.`;
     }
     activeLink.current?.focus({ preventScroll: true });
-  }, [activePanel.id, activePanel.name, activePanel.surfaces, pathname]);
+  }, [activePanel, pathname]);
 
   if (panels.length < 2) return null;
 
@@ -97,14 +105,20 @@ export function AgentPanelNavigation({
             ? {
                 href: panelSurfaceHref(
                   panel.id,
-                  panel.surfaces.includes(currentSurface) ? currentSurface : "overview",
+                  panel.surfaces.includes(currentSurface)
+                    ? currentSurface
+                    : panelDefaultSurface(panel),
                 ),
               }
             : switchTarget(panel, currentSurface);
           return (
             <Link
               ref={active ? activeLink : undefined}
-              href={target.href as Route}
+              href={
+                (active && panel.runtime === "claude-code"
+                  ? withClaudeProject(target.href, projectId)
+                  : target.href) as Route
+              }
               prefetch={false}
               key={panel.id}
               className={cn("agent-panel-link", active && "agent-panel-link-active")}

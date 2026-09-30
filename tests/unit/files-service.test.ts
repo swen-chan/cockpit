@@ -39,6 +39,20 @@ describe("workspace files service", () => {
     expect(data.previewFailure).toBeUndefined();
   });
 
+  it("opens a linked nested file and reports a missing target without substituting another file", async () => {
+    writeFileSync(path.join(root, "docs", "target.txt"), "linked file content");
+    const data = await loadFilesPageData({ workspaceRoot: root, initialPath: "docs/target.txt" });
+    expect(data.directory.path).toBe("docs");
+    expect(data.initialFile?.content).toBe("linked file content");
+    const missing = await loadFilesPageData({ workspaceRoot: root, initialPath: "docs/gone.txt" });
+    expect(missing.directory.path).toBe("docs");
+    expect(missing.initialFile).toBeNull();
+    expect(missing.previewFailure?.code).toBe("missing_source");
+    const outside = await loadFilesPageData({ workspaceRoot: root, initialPath: "../outside.txt" });
+    expect(outside.initialFile).toBeNull();
+    expect(outside.directoryFailure?.code).toBe("invalid_path");
+  });
+
   it("returns a safe page failure when the workspace is unavailable", async () => {
     const data = await loadFilesPageData({
       environment: {},
