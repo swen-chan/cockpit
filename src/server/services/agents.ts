@@ -1,10 +1,17 @@
 import "server-only";
 
+import { readClaudeSessionPage, readClaudeSession } from "@/server/claude/reader";
+
+import { resolveClaudeProject } from "@/server/claude/projects";
+import { loadClaudeSystem } from "@/server/claude/system";
+import { loadClaudeOverview } from "@/server/claude/overview";
+import type { ClaudeOverviewSnapshot } from "@/contracts/claude-overview";
 import type { OverviewSnapshot } from "@/contracts/cockpit";
 import type { CodexOverviewSnapshot } from "@/contracts/codex";
 import type {
   AgentPanelDescriptor,
   CodexPanelDescriptor,
+  ClaudePanelDescriptor,
   HermesPanelDescriptor,
 } from "@/server/panels/registry";
 import { SourceSecurityError } from "@/server/security/errors";
@@ -32,6 +39,7 @@ import {
 
 export interface AgentReadOptions {
   readonly signal?: AbortSignal;
+  readonly projectId?: string | null;
 }
 
 export interface AgentPageOptions extends AgentReadOptions {
@@ -53,16 +61,22 @@ export function loadAgentOverview(
   options?: AgentReadOptions,
 ): Promise<CodexOverviewSnapshot>;
 export function loadAgentOverview(
+  panel: ClaudePanelDescriptor,
+  options?: AgentReadOptions,
+): Promise<ClaudeOverviewSnapshot>;
+export function loadAgentOverview(
   panel: AgentPanelDescriptor,
   options?: AgentReadOptions,
-): Promise<OverviewSnapshot | CodexOverviewSnapshot>;
+): Promise<OverviewSnapshot | CodexOverviewSnapshot | ClaudeOverviewSnapshot>;
 export function loadAgentOverview(
   panel: AgentPanelDescriptor,
   options: AgentReadOptions = {},
-): Promise<OverviewSnapshot | CodexOverviewSnapshot> {
+): Promise<OverviewSnapshot | CodexOverviewSnapshot | ClaudeOverviewSnapshot> {
   assertSourceReadAllowed();
   if (panel.runtime === "codex") return loadCodexOverviewSnapshot(panel, options);
+  if (panel.runtime === "claude-code") return loadClaudeOverview(panel, options.projectId);
 
+  if (panel.runtime !== "hermes") throw new SourceSecurityError("unsupported_capability");
   const systemOptions = scopedHermesSystemOptions(panel);
   return loadOverviewSnapshot({
     readers: {
@@ -78,6 +92,8 @@ export function loadAgentOverview(
 export function loadAgentSystem(panel: AgentPanelDescriptor, options: AgentReadOptions = {}) {
   assertSourceReadAllowed();
   if (panel.runtime === "codex") return loadCodexSystemSnapshot(panel, options);
+  if (panel.runtime === "claude-code") return loadClaudeSystem(panel, options.projectId);
+  if (panel.runtime !== "hermes") throw new SourceSecurityError("unsupported_capability");
   return loadSystemPageData(scopedHermesSystemOptions(panel));
 }
 
@@ -91,6 +107,8 @@ export function loadAgentConversationPage(
   options: AgentPageOptions = {},
 ) {
   if (panel.runtime === "codex") return loadCodexTaskPage(panel, options);
+  if (panel.runtime === "claude-code")
+    return readClaudeSessionPage(panel, options.cursor, options.projectId);
   return loadConversationPage(options.cursor ?? null, 5, scopedHermesConversationOptions(panel));
 }
 
@@ -100,20 +118,40 @@ export function loadAgentConversationDetail(
   options: AgentReadOptions = {},
 ) {
   if (panel.runtime === "codex") return loadCodexTaskDetail(panel, requestedId, options);
+  if (panel.runtime === "claude-code")
+    return readClaudeSession(panel, requestedId, options.projectId);
   return loadConversationTranscript(requestedId, scopedHermesConversationOptions(panel));
 }
 
-export function loadAgentWorkspaceDirectory(panel: AgentPanelDescriptor, relativePath: string) {
+export function loadAgentWorkspaceDirectory(
+  panel: AgentPanelDescriptor,
+  relativePath: string,
+  projectId?: string | null,
+) {
   if (panel.runtime === "codex") {
     return loadWorkspaceDirectory(relativePath, { workspaceRoot: codexWorkspaceRoot(panel) });
   }
+  if (panel.runtime === "claude-code")
+    return loadWorkspaceDirectory(relativePath, {
+      workspaceRoot: resolveClaudeProject(panel, projectId).workspaceRoot,
+    });
+  if (panel.runtime !== "hermes") throw new SourceSecurityError("unsupported_capability");
   return loadWorkspaceDirectory(relativePath, scopedHermesFilesOptions(panel));
 }
 
-export function loadAgentWorkspacePreview(panel: AgentPanelDescriptor, relativePath: string) {
+export function loadAgentWorkspacePreview(
+  panel: AgentPanelDescriptor,
+  relativePath: string,
+  projectId?: string | null,
+) {
   if (panel.runtime === "codex") {
     return loadWorkspacePreview(relativePath, { workspaceRoot: codexWorkspaceRoot(panel) });
   }
+  if (panel.runtime === "claude-code")
+    return loadWorkspacePreview(relativePath, {
+      workspaceRoot: resolveClaudeProject(panel, projectId).workspaceRoot,
+    });
+  if (panel.runtime !== "hermes") throw new SourceSecurityError("unsupported_capability");
   return loadWorkspacePreview(relativePath, scopedHermesFilesOptions(panel));
 }
 

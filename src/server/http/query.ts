@@ -78,8 +78,13 @@ export function parseScopedConversationPageQuery(request: Request): {
   return { cursor: parsed.cursor ?? null };
 }
 
-export function parseScopedConversationRequest(request: Request, id: string): string {
-  assertNoQuery(request);
+export function parseScopedConversationRequest(
+  request: Request,
+  id: string,
+  claude = false,
+): string {
+  if (claude) parseClaudeQuery(request);
+  else assertNoQuery(request);
   const parsed = scopedTaskIdSchema.safeParse(id);
   if (!parsed.success) throw new SourceSecurityError("invalid_path");
   return parsed.data;
@@ -99,4 +104,38 @@ export function parsePreviewQuery(request: Request): string {
 
 export function parseSkillQuery(request: Request): string {
   return parseQuery(request, skillQuerySchema, skillQueryKeys).id;
+}
+
+export function parseClaudeQuery(
+  request: Request,
+  kind: "scope" | "page" | "directory" | "preview" = "scope",
+) {
+  const allowedKeys = new Set([
+    "project",
+    ...(kind === "page" ? ["cursor"] : []),
+    ...(["directory", "preview"].includes(kind) ? ["path"] : []),
+  ]);
+  const parsed = parseQuery(
+    request,
+    z
+      .object({
+        project: z
+          .string()
+          .min(1)
+          .max(40)
+          .regex(/^[a-z0-9][a-z0-9-]*$/u)
+          .optional(),
+        cursor: z.string().min(1).max(6000).regex(scopedCursor).optional(),
+        path: z.string().max(SOURCE_LIMITS.maxPathCharacters).optional(),
+      })
+      .strict(),
+    allowedKeys,
+  );
+  if (kind === "preview" && !parsed.path) throw new SourceSecurityError("invalid_path");
+  if (parsed.path !== undefined) parseRelativePath(parsed.path);
+  return {
+    projectId: parsed.project ?? null,
+    cursor: parsed.cursor ?? null,
+    path: parsed.path ?? "",
+  };
 }

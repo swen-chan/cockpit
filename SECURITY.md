@@ -2,8 +2,7 @@
 
 ## Supported versions
 
-The latest published `v0.1.x`, `v0.2.x`, and `v0.3.x` developer previews receive best-effort
-security fixes. They are previews, not stable production releases. Untagged
+Published developer previews receive best-effort security fixes. They are previews, not stable production releases. Untagged
 development snapshots are not supported releases.
 
 ## Reporting a vulnerability
@@ -14,7 +13,7 @@ Reporting for this repository. Do not open a public issue with exploit details.
 Include the affected version or commit, operating system, impact, and a minimal
 reproduction using synthetic data. Never upload real tokens, conversations,
 databases, configuration, local paths, screenshots, or logs from a personal
-agent installation, including Hermes or Codex.
+agent installation, including Hermes, Codex, or Claude Code.
 
 ## Shared local trust model
 
@@ -43,7 +42,7 @@ including private data.
 
 ## Codex preview boundary
 
-Codex support was introduced in v0.2 and continues in v0.3. Its reader is limited
+Codex support was introduced in v0.2. Its reader is limited
 to the explicitly configured local Codex home, Codex CLI `0.145.0`, and the fixed
 `state_5.sqlite` source. Cockpit prepares a disposable snapshot by opening that
 database with `SQLITE_OPEN_READONLY`, `fileMustExist`, and `query_only`.
@@ -86,6 +85,30 @@ Cockpit examines only a bounded set of its own validated stale directories and
 removes one only after every recorded process and process group is confirmed
 gone. Ambiguous identity or liveness leaves the directory untouched; cleanup
 never signals a process or follows a path from the owner marker.
+
+## Claude Code preview boundary
+
+The Claude Code preview pins the Claude Agent SDK to `0.3.283` and reads only
+immediate UUID-named JSONL files inside each explicitly configured project session directory
+in `COCKPIT_CLAUDE_PROJECTS`. This is
+trusted operator startup configuration; browsers receive opaque selectors and
+cannot change the source directory. Nested directories and session-file symlinks
+are excluded. The SDK receives already-bounded records through a request-local
+store with no writable operation; its native filesystem discovery and agent
+startup APIs are not used. No API key is required.
+
+Newly constructed DTOs contain only sanitized text, neutral titles, timestamps,
+identified compaction summaries, bounded operation labels, approved relative file
+references, narrowly matched check commands, and sanitized result excerpts. Raw
+argument objects, arbitrary commands, thinking, image blocks, configuration, and
+private identifiers are excluded. Project selectors are startup-defined IDs; session
+and cursor tokens are bound to the project and its configured roots. Files reuse
+the approved workspace boundary. System reads only selected current instructions,
+memory, skills, and subagent definition files; it does not execute them or reconstruct
+historical effective configuration. This preview retains the shared local trust
+model. Maintainer UI acceptance used fictional data; real-installation
+compatibility is being collected through early-user feedback.
+See [the reader notes](docs/claude-readonly-preview.md) for exact limits.
 
 Cockpit does not currently operate a bug bounty or promise a fixed response
 timeline. Reports will be handled on a best-effort coordinated-disclosure basis.

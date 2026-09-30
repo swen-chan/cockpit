@@ -1368,6 +1368,88 @@ button.capability-row.is-selected .capability-meta em {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.claude-session-grid {
+  grid-template-columns: minmax(220px, 30%) minmax(0, 1fr);
+}
+.claude-session-list {
+  grid-auto-rows: minmax(118px, auto);
+  height: auto;
+}
+.claude-session-list .index-row > svg {
+  flex: 0 0 auto;
+}
+.claude-session-list .claude-session-context {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+.claude-session-detail .preview-toolbar > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.claude-session-detail .message p {
+  white-space: pre-wrap;
+}
+.claude-session-detail .message header {
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+.claude-session-detail .message-summary {
+  background: var(--rail);
+  padding: 12px;
+}
+.claude-activity-disclosure[open] > summary > svg,
+.claude-source-disclosure[open] > summary > svg {
+  transform: rotate(180deg);
+}
+.claude-activity-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  padding: 10px 0;
+}
+.claude-activity-disclosure > summary > svg,
+.claude-source-disclosure > summary > svg {
+  flex-shrink: 0;
+}
+.claude-recorded-error {
+  color: var(--danger);
+}
+.claude-source-disclosure .source-ledger {
+  border: 0;
+}
+.claude-source-disclosure .source-ledger dl {
+  display: block;
+}
+.claude-activity-notes > summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: 12px 0;
+}
+.claude-unassigned-activity {
+  margin-top: 24px;
+}
+.claude-unassigned-activity h3 {
+  font-size: 12px;
+}
+.claude-activity-body {
+  font-size: 11px;
+  line-height: 1.6;
+  padding: 0 12px 12px;
+}
+.claude-activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.claude-activity-list li {
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  justify-content: space-between;
+  padding: 10px 0;
+}
 .workspace-root {
   align-items: center;
   border-bottom: 1px solid var(--ink);
@@ -1872,5 +1954,98 @@ tbody tr.is-selected .status-unavailable {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+.claude-project-picker {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0.8rem 16px;
+  min-width: 0;
+  font-size: 0.75rem;
+}
+.claude-project-picker select {
+  width: 100%;
+  min-width: 0;
+  color: inherit;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 0.55rem;
+}
+.claude-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 1rem;
+}
+.claude-overview-grid > :first-child {
+  grid-row: span 2;
+}
+.claude-overview-grid .preview-pane {
+  min-width: 0;
+}
+.claude-system-counts > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 0.35rem;
+}
+.claude-operation {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.claude-operation strong,
+.claude-operation code,
+.claude-system-grid .index-row strong,
+.claude-system-grid .preview-toolbar h2 {
+  overflow-wrap: anywhere;
+}
+.claude-system-grid .preview-toolbar > div {
+  min-width: 0;
+}
+.claude-result pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 20rem;
+  overflow: auto;
+}
+.claude-back-link {
+  display: inline-block;
+  margin-bottom: 1rem;
+}
+.message[id] {
+  scroll-margin-top: 1rem;
+}
+@media (max-width: 767px) {
+  .claude-overview-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .app-shell-claude {
+    --shell-mobile-height: 164px;
+  }
+  .app-shell-claude.app-shell-dual {
+    --shell-mobile-height: 209px;
+  }
+  .claude-project-picker {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 60px;
+    margin: 0;
+    padding: 8px 16px;
+    max-width: 100%;
+  }
+  .claude-project-picker select {
+    flex: 1;
+    width: auto;
+    min-height: 44px;
+  }
+  .claude-project-picker strong {
+    overflow-wrap: anywhere;
+  }
+  .message[id] {
+    scroll-margin-top: calc(var(--shell-mobile-height) + 16px);
   }
 }

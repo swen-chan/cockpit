@@ -8,7 +8,10 @@ import type { PublicAgentPanel } from "@/contracts/agents";
 import { LAST_PANEL_COOKIE } from "@/lib/panel-navigation";
 
 const route = vi.hoisted(() => ({ pathname: "/agents/hermes/system" }));
-vi.mock("next/navigation", () => ({ usePathname: () => route.pathname }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => route.pathname,
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}));
 
 const hermes: PublicAgentPanel = {
   id: "hermes",
@@ -83,4 +86,21 @@ describe("Agent panel navigation", () => {
     render(<LastPanelCommit panelId="codex" />);
     await waitFor(() => expect(document.cookie).toContain(`${LAST_PANEL_COOKIE}=codex`));
   });
+});
+
+it("keeps the selected Claude project when clicking the active Agent link", () => {
+  const claude: PublicAgentPanel = {
+    id: "claude-code",
+    runtime: "claude-code",
+    name: "Claude Code",
+    surfaces: ["conversations", "overview", "system", "files"],
+  };
+  route.pathname = "/agents/claude-code/system";
+  window.history.replaceState({}, "", "/agents/claude-code/system?project=notes");
+  render(<AgentPanelNavigation activePanel={claude} panels={[hermes, claude]} />);
+  expect(screen.getByRole("link", { name: /Claude CodeCLAUDE-CODE/u })).toHaveAttribute(
+    "href",
+    "/agents/claude-code/system?project=notes",
+  );
+  window.history.replaceState({}, "", "/");
 });

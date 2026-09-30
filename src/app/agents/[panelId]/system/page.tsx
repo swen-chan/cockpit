@@ -1,3 +1,6 @@
+import { ClaudeSystemBrowser } from "@/components/claude-system-browser";
+import { loadClaudeSystem } from "@/server/claude/system";
+import { claudePageQuery, type ClaudePageSearch } from "@/server/claude/page-query";
 import type { Metadata } from "next";
 
 import { LastPanelCommit } from "@/components/last-panel-commit";
@@ -12,18 +15,36 @@ import { loadAgentSystem } from "@/server/services/agents";
 import { scopedHermesSystemOptions } from "@/server/services/hermes-scoped";
 import { loadSystemPageData } from "@/server/services/system";
 
-type Props = { params: Promise<{ panelId: string }> };
+type Props = { params: Promise<{ panelId: string }>; searchParams?: Promise<ClaudePageSearch> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return scopedPageMetadata((await params).panelId, "system");
 }
 
-export default async function AgentSystemPage({ params }: Props) {
+export default async function AgentSystemPage({ params, searchParams }: Props) {
   const { panelId } = await params;
   const context = requireScopedPage(panelId, "system");
   if (context.state !== "ready") return null;
   const { panel, supported } = context;
   if (!supported) return <UnsupportedSurface panel={panel} surface="system" />;
+  if (panel.runtime === "claude-code") {
+    const { project } = claudePageQuery(panel, await searchParams);
+    const snapshot = await loadClaudeSystem(panel, project.id);
+    return (
+      <>
+        <LastPanelCommit panelId={panel.id} />
+        <div className="page-wrap">
+          <PageHeader
+            title="System"
+            description={`Inspect current instructions, memory, skills, and subagent definitions for ${project.name}.`}
+            observedAt={formatShanghaiTime(snapshot.observedAt)}
+            mode="CLAUDE CODE / READ ONLY"
+          />
+          <ClaudeSystemBrowser key={project.id} snapshot={snapshot} />
+        </div>
+      </>
+    );
+  }
   if (panel.runtime === "codex") {
     const snapshot = codexSystemSnapshotSchema.parse(await loadAgentSystem(panel));
     return (

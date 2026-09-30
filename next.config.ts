@@ -41,7 +41,7 @@ const nextConfig: NextConfig = {
       "src/server/codex/stable-copy.mjs",
     ],
   },
-  serverExternalPackages: ["better-sqlite3"],
+  serverExternalPackages: ["better-sqlite3", "@anthropic-ai/claude-agent-sdk"],
   typedRoutes: true,
 };
 

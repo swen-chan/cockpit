@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { ClaudeOverview } from "@/components/claude-overview";
+import { claudePageQuery, type ClaudePageSearch } from "@/server/claude/page-query";
 
 import { LastPanelCommit } from "@/components/last-panel-commit";
 import { UnsupportedSurface } from "@/components/scoped-surface-state";
@@ -10,7 +12,7 @@ import { loadAgentOverview } from "@/server/services/agents";
 
 type Props = {
   params: Promise<{ panelId: string }>;
-  searchParams: Promise<{ from?: string | string[] | undefined }>;
+  searchParams: Promise<ClaudePageSearch>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -22,6 +24,16 @@ export default async function AgentOverviewPage({ params, searchParams }: Props)
   const context = requireScopedPage(panelId, "overview");
   if (context.state !== "ready") return null;
   const { panel, supported } = context;
+  if (panel.runtime === "claude-code") {
+    const { project } = claudePageQuery(panel, await searchParams);
+    const snapshot = await loadAgentOverview(panel, { projectId: project.id });
+    return (
+      <>
+        <LastPanelCommit panelId={panel.id} />
+        <ClaudeOverview snapshot={snapshot} />
+      </>
+    );
+  }
   if (!supported) return <UnsupportedSurface panel={panel} surface="overview" />;
 
   const fromValue = (await searchParams).from;

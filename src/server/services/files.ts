@@ -10,6 +10,7 @@ export interface LoadFilesOptions {
   environment?: Readonly<Record<string, string | undefined>>;
   now?: Date;
   workspaceRoot?: string;
+  initialPath?: string;
 }
 
 export interface FilesPageData {
@@ -43,7 +44,10 @@ export async function loadFilesPageData(options: LoadFilesOptions = {}): Promise
   const now = options.now ?? new Date();
   let directory: WorkspaceDirectory;
   try {
-    directory = await loadWorkspaceDirectory("", { ...options, now });
+    directory = await loadWorkspaceDirectory(
+      options.initialPath?.split("/").slice(0, -1).join("/") ?? "",
+      { ...options, now },
+    );
   } catch (error) {
     return {
       directory: {
@@ -59,16 +63,17 @@ export async function loadFilesPageData(options: LoadFilesOptions = {}): Promise
   }
 
   const firstFile = directory.items.find((entry) => entry.entryType === "file");
-  if (!firstFile) return { directory, initialFile: null };
+  const targetPath = options.initialPath ?? firstFile?.path;
+  if (!targetPath) return { directory, initialFile: null };
   try {
     return {
       directory,
-      initialFile: await loadWorkspacePreview(firstFile.path, options),
+      initialFile: await loadWorkspacePreview(targetPath, options),
     };
   } catch (error) {
     return {
       directory,
-      initialFile: firstFile,
+      initialFile: options.initialPath ? null : (firstFile ?? null),
       previewFailure: toSafeDiagnostic(error, "workspace", now),
     };
   }

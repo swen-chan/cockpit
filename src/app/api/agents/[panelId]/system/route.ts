@@ -1,3 +1,5 @@
+import { claudeSystemSnapshotSchema } from "@/contracts/claude-system";
+import { parseClaudeQuery } from "@/server/http/query";
 import { codexSystemSnapshotSchema } from "@/contracts/codex";
 import { systemSnapshotSchema } from "@/contracts/source-result";
 import { assertNoQuery } from "@/server/http/query";
@@ -12,12 +14,21 @@ export async function GET(request: Request, context: RouteContext<"/api/agents/[
     const { panelId } = await context.params;
     panel = resolveScopedPanel(panelId);
     requireScopedPanelSurface(panel, "system");
-    assertNoQuery(request);
-    const snapshot = await loadAgentSystem(panel, { signal: request.signal });
+    if (panel.runtime !== "claude-code") assertNoQuery(request);
+    const snapshot = await loadAgentSystem(panel, {
+      signal: request.signal,
+      ...(panel.runtime === "claude-code"
+        ? { projectId: parseClaudeQuery(request).projectId }
+        : {}),
+    });
     return scopedSuccessResponse(
       panel,
       snapshot,
-      panel.runtime === "codex" ? codexSystemSnapshotSchema : systemSnapshotSchema,
+      panel.runtime === "claude-code"
+        ? claudeSystemSnapshotSchema
+        : panel.runtime === "codex"
+          ? codexSystemSnapshotSchema
+          : systemSnapshotSchema,
     );
   } catch (error) {
     return scopedFailureResponse(error, { sourceId: "system", ...(panel ? { panel } : {}) });

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { PublicAgentPanel } from "@/contracts/agents";
 import {
+  panelDefaultSurface,
   panelSurfaceHref,
   panelSurfaceLabel,
   surfaceFromPathname,
@@ -44,5 +45,23 @@ describe("panel navigation", () => {
       href: "/agents/codex?from=jobs",
       fallback: true,
     });
+  });
+});
+
+it("uses Conversations as Claude Code's supported landing surface", () => {
+  const claude: PublicAgentPanel = {
+    id: "claude-code",
+    name: "Claude Code",
+    runtime: "claude-code",
+    surfaces: ["conversations"],
+  };
+  expect(panelDefaultSurface(claude)).toBe("conversations");
+  expect(switchTarget(claude, "jobs")).toEqual({
+    href: "/agents/claude-code/conversations?from=jobs",
+    fallback: true,
+  });
+  expect(switchTarget(claude, "conversations")).toEqual({
+    href: "/agents/claude-code/conversations?from=conversations",
+    fallback: false,
   });
 });

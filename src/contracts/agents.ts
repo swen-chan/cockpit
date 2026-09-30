@@ -1,9 +1,15 @@
 import { z } from "zod";
 
-export const agentPanelIdSchema = z.enum(["hermes", "codex"]);
-export const agentRuntimeSchema = z.enum(["hermes", "codex"]);
+export const agentPanelIdSchema = z.enum(["hermes", "codex", "claude-code"]);
+export const agentRuntimeSchema = z.enum(["hermes", "codex", "claude-code"]);
 export const agentSurfaceSchema = z.enum(["overview", "system", "conversations", "files", "jobs"]);
 export const isoTimestampSchema = z.iso.datetime({ offset: true });
+
+export const claudeProjectIdSchema = z.string().regex(/^[a-z][a-z0-9-]{0,39}$/u);
+export const publicClaudeProjectSchema = z
+  .object({ id: claudeProjectIdSchema, name: z.string().min(1).max(80) })
+  .strict();
+export type PublicClaudeProject = Readonly<z.infer<typeof publicClaudeProjectSchema>>;
 
 const hermesSurfaceTuple = z.tuple([
   z.literal("overview"),
@@ -25,6 +31,19 @@ const codexFilesSurfaceTuple = z.tuple([
 ]);
 
 export const publicAgentPanelSchema = z.union([
+  z
+    .object({
+      id: z.literal("claude-code"),
+      name: z.literal("Claude Code"),
+      runtime: z.literal("claude-code"),
+      surfaces: z.tuple([
+        z.literal("conversations"),
+        z.literal("overview"),
+        z.literal("system"),
+        z.literal("files"),
+      ]),
+    })
+    .strict(),
   z
     .object({
       id: z.literal("hermes"),
@@ -118,6 +137,9 @@ export const scopedFailureSchema = z
 
 export function scopedSuccessSchema<T extends z.ZodType>(data: T) {
   return z.union([
+    z
+      .object({ panelId: z.literal("claude-code"), runtime: z.literal("claude-code"), data })
+      .strict(),
     z.object({ panelId: z.literal("hermes"), runtime: z.literal("hermes"), data }).strict(),
     z.object({ panelId: z.literal("codex"), runtime: z.literal("codex"), data }).strict(),
   ]);

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/cockpit-banner.png" alt="Cockpit — See what our agents are doing. Supports Hermes Agent and Codex." width="100%">
+  <img src="docs/assets/cockpit-banner.png" alt="Cockpit — See what our agents are doing." width="100%">
 </p>
 
 # Cockpit
@@ -17,29 +17,31 @@ Cockpit does not send messages, resume tasks, edit files, control jobs, or
 create a second persistent application database.
 
 > [!IMPORTANT]
-> **v0.3.0 is a developer preview, not universal agent support.** The Hermes preset
+> **v0.4.0 is a developer preview, not universal agent support.** The Hermes preset
 > targets [Hermes Agent v0.21.2](https://github.com/NousResearch/hermes-agent/releases/tag/v2026.9.11)
 > (release `v2026.9.11`). Codex integration is pinned to Codex CLI `0.145.0`.
-> Automated regression tests use synthetic data; limited local acceptance is
-> not a guarantee for other installations. There is no import wizard or
+> Claude Code inspection uses Claude Agent SDK `0.3.283`; real-installation
+> compatibility will be refined through early-user feedback. Automated regression
+> tests use synthetic data; local UI acceptance is not a guarantee for other
+> installations. There is no import wizard or
 > automatic source discovery.
 
-See the [v0.3.0 release notes](docs/releases/v0.3.0.md) for changes,
+See the [v0.4.0 release notes](docs/releases/v0.4.0.md) for changes,
 installation instructions, and known limits.
 
 Cockpit is an independent open-source project. It is not affiliated with or
 endorsed by [Nous Research](https://nousresearch.com/), the
-[Hermes Agent](https://github.com/NousResearch/hermes-agent) project, or OpenAI.
+[Hermes Agent](https://github.com/NousResearch/hermes-agent) project, OpenAI, or Anthropic.
 
 ## What you can inspect
 
-| View                      | Hermes Agent                                          | Codex preview                                                                       |
-| ------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| **Overview**              | Recent activity and source status                     | Task index and available source status                                              |
-| **System**                | Profile, context, skills, tools, and source documents | Current approved guidance documents, not a reconstruction of past task instructions |
-| **Conversations / Tasks** | Eligible interactive conversations                    | Tasks with project labels, messages, and folded, filtered Process activity          |
-| **Files**                 | Files inside the approved Hermes workspace            | Optional; only inside a separately approved Codex workspace                         |
-| **Jobs**                  | Scheduled jobs and observed runs                      | Not available                                                                       |
+| View                      | Hermes Agent                                          | Codex preview                                                    | Claude Code preview                                                                  |
+| ------------------------- | ----------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| **Overview**              | Recent activity and source status                     | Task index and available source status                           | Recent project conversations, current System inventory, and workspace access         |
+| **System**                | Profile, context, skills, tools, and source documents | Current approved guidance documents                              | Current instructions, memory, Skills, and custom Subagent definitions                |
+| **Conversations / Tasks** | Eligible interactive conversations                    | Tasks with project labels, messages, and folded Process activity | Saved conversations with folded operations, result excerpts, and approved file links |
+| **Files**                 | Approved Hermes workspace                             | Optional separately approved Codex workspace                     | Each explicitly configured project workspace                                         |
+| **Jobs**                  | Scheduled jobs and observed runs                      | Not available                                                    | Not available                                                                        |
 
 Every surface is intentionally bounded and read-only. Source failures stay
 local to the affected section instead of taking down the entire interface.
@@ -52,6 +54,8 @@ work, not project folders; a task's project label does not grant Files access.
 
 - Node.js 24 or newer
 - pnpm 10.28.1
+- For Claude Code: existing saved local sessions and an explicitly approved project
+  workspace. Cockpit does not require a Claude executable, account, or API key.
 - For Hermes: Hermes Agent v0.21.2 (`v2026.9.11`), or a custom source manifest
 - For Codex: macOS or Linux, an existing local Codex home, and a trusted Codex
   CLI **exactly `0.145.0`** on the `PATH` used to start Cockpit. Other versions
@@ -70,7 +74,7 @@ pnpm install
 
 Create an ignored `.env.local` using one of the options below. Replace the
 example paths with your own absolute paths; do not use a literal `~`.
-Neither agent requires the other to be installed.
+Each Agent can be configured independently.
 
 Hermes requires both an approved workspace and exactly one source preset or
 manifest. Codex requires an explicit Codex home; its optional workspace and
@@ -111,6 +115,25 @@ home and, when configured, the approved workspace. An optional
 it is not a new absolute-path permission or a claim that Codex used that file
 in a past task.
 
+#### Claude Code only (preview)
+
+```dotenv
+COCKPIT_CLAUDE_PROJECTS='[{"id":"website","name":"Website","sessionRoot":"/absolute/path/to/claude/project-sessions","workspaceRoot":"/absolute/path/to/website","memoryRoot":"/absolute/path/to/claude/project-memory"}]'
+# Optional shared user instructions, rules, skills, and subagent definitions:
+COCKPIT_CLAUDE_USER_ROOT=/absolute/path/to/claude-user-directory
+```
+
+This enables Conversations, Overview, System, and Files for each explicitly
+configured project. Conversations remain the default entry; project selection
+applies across all four views. Each project requires its own session directory
+and approved workspace; the memory directory and shared user sources are
+optional. The old `COCKPIT_CLAUDE_SESSION_ROOT` setting is removed: replace it with
+`COCKPIT_CLAUDE_PROJECTS`. No Claude executable or API key is required.
+This v0.4.0 preview uses SDK `0.3.283`. Its synthetic-data UI has local
+acceptance; real-installation feedback is invited during the preview. See the
+[Claude reader notes](docs/claude-readonly-preview.md) for coverage, limits, and
+acceptance steps.
+
 #### Hermes and Codex together
 
 ```dotenv
@@ -123,16 +146,18 @@ COCKPIT_CODEX_HOME=/absolute/path/to/your/.codex
 COCKPIT_DEFAULT_PANEL=hermes
 ```
 
-Every panel uses `/agents/hermes` or `/agents/codex`, including installations
-with only one configured Agent. Its views append `/system`, `/conversations`,
+Panels use `/agents/hermes`, `/agents/codex`, or
+`/agents/claude-code/conversations`, including installations with only one
+configured Agent. Its views append `/system`, `/conversations`,
 `/files`, or `/jobs` when supported; read APIs use the matching
 `/api/agents/<panel>/...` prefix.
 
 Opening `/` selects the last successfully opened panel in that browser. An
 explicit panel URL takes priority. Without a valid remembered selection, `/`
-opens the only configured Agent, or Hermes when both are configured.
-`COCKPIT_DEFAULT_PANEL` can select either configured panel (`hermes` or `codex`)
-as that fallback. The Agent switcher appears when both panels are configured.
+opens the first configured Agent in Hermes, Codex, Claude Code order.
+`COCKPIT_DEFAULT_PANEL` can select any configured panel (`hermes`, `codex`, or
+`claude-code`) as that fallback. The Agent switcher appears when multiple panels
+are configured. Each panel opens its first supported view.
 
 ### Start Cockpit
 
@@ -190,6 +215,9 @@ workspace access.
 - Codex task inspection uses bounded, disposable local snapshots. App Server
   receives only Cockpit-owned copies; Cockpit never resumes a task or converts
   the original history. See the [Codex reader notes](docs/codex-paginated-history.md).
+- Claude inspection reads bounded saved sessions, current guidance, and workspace
+  files only from explicitly configured projects. Recorded file references never
+  grant access outside the approved workspace; no agent is started.
 - Browser responses are constructed from strict allowlists; credential files,
   raw configuration, raw tool payloads, and private persistence mappings are
   excluded.
@@ -229,10 +257,17 @@ pnpm test:browser
 `pnpm format` applies the repository's pinned Prettier rules. `pnpm verify`
 checks formatting, types, ESLint with zero warnings, unit/integration tests, and
 the production build. Installing dependencies also configures a pre-commit hook
-that runs ESLint and Prettier only on staged files. The browser suite runs
-Chromium flows against temporary synthetic Agent environments; it refuses to
+that runs ESLint and Prettier only on staged files. `pnpm test:browser` builds
+fresh production code before running Chromium flows against temporary synthetic
+Agent environments. Both local and CI runs use `next start`, so route compilation
+does not compete with interaction assertions. This follows the
+[Next.js Playwright guidance](https://nextjs.org/docs/app/guides/testing/playwright#running-your-playwright-tests).
+The suite refuses to
 reuse a real server on port 3000. The scenarios cover Hermes only, Codex only,
-both Agents, an unavailable Codex runtime, and missing or invalid configuration.
+multiple Agents, an unavailable Codex runtime, Claude project scope and all four views,
+empty/missing Claude sources, and missing or invalid configuration.
+Failed-test traces and error context are kept under `test-results/<scenario>/`,
+so later scenarios do not erase an earlier failure's evidence.
 
 For a focused issue or pull request, keep changes inside the current local,
 read-only, single-user boundary, run both verification commands, and never
@@ -264,6 +299,8 @@ version tag, and release notes. Merging a PR does not publish a release by itsel
 - Lists and previews are deliberately bounded. Unsupported, binary, and
   oversized workspace files expose metadata only. Codex task rollout files
   over 32 MiB fail explicitly rather than loading without a limit.
+- Claude session/file return links work within the current server process;
+  restarting Cockpit invalidates their selectors. Reopen the session from its list.
 - Cross-conversation search, stable row-level deep links, mutation controls,
   remote access, cloud hosting, and multi-user operation remain out of scope.
 - All dates currently display in the fixed `Asia/Shanghai` time zone.

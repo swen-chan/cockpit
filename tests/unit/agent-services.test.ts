@@ -198,3 +198,38 @@ describe("fixed Agent service dispatch", () => {
     expect(mocks.filesPreview).not.toHaveBeenCalled();
   });
 });
+
+it("dispatches Claude Files to the selected project and rejects unsupported Jobs", async () => {
+  const claude = resolveScopedPanel("claude-code", {
+    COCKPIT_CLAUDE_PROJECTS: JSON.stringify([
+      {
+        id: "atlas",
+        name: "Atlas",
+        sessionRoot: "/synthetic/claude",
+        workspaceRoot: "/synthetic/atlas",
+      },
+      {
+        id: "notes",
+        name: "Notes",
+        sessionRoot: "/synthetic/claude-notes",
+        workspaceRoot: "/synthetic/notes",
+      },
+    ]),
+  });
+  mocks.filesDirectory.mockResolvedValue("directory");
+  mocks.filesPreview.mockResolvedValue("preview");
+  await expect(loadAgentWorkspaceDirectory(claude, "src")).resolves.toBe("directory");
+  expect(mocks.filesDirectory).toHaveBeenLastCalledWith("src", {
+    workspaceRoot: "/synthetic/atlas",
+  });
+  await expect(loadAgentWorkspacePreview(claude, "README.md", "notes")).resolves.toBe("preview");
+  expect(mocks.filesPreview).toHaveBeenLastCalledWith("README.md", {
+    workspaceRoot: "/synthetic/notes",
+  });
+  expect(() => loadAgentWorkspaceDirectory(claude, "", "unknown")).toThrowError(
+    expect.objectContaining({ code: "invalid_path" }),
+  );
+  expect(() => loadAgentJobs(claude)).toThrowError(
+    expect.objectContaining({ code: "unsupported_capability" }),
+  );
+});

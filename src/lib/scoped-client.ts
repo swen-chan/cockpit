@@ -26,7 +26,11 @@ export function parseScopedFailure(payload: unknown, panelId: AgentPanelId): Sco
   return parsed.success && parsed.data.panelId === panelId ? parsed.data : null;
 }
 
-export function isCurrentPanelLocation(panelId: AgentPanelId): boolean {
+export function isCurrentPanelLocation(panelId: AgentPanelId, projectId?: string): boolean {
   if (typeof window === "undefined") return false;
-  return window.location.pathname.split("/").filter(Boolean)[1] === panelId;
+  return (
+    window.location.pathname.split("/").filter(Boolean)[1] === panelId &&
+    (projectId === undefined ||
+      new URLSearchParams(window.location.search).get("project") === projectId)
+  );
 }

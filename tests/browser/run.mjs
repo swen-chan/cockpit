@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -19,6 +20,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import Database from "better-sqlite3";
 
+import { createClaudeFixture } from "../helpers/claude-fixture.ts";
+
 import {
   assertHermesFixtureSourcesUnchanged,
   createHermesFixture,
@@ -36,6 +39,9 @@ const SOURCE_ENVIRONMENT_KEYS = Object.freeze([
   "COCKPIT_CODEX_HOME",
   "COCKPIT_CODEX_WORKSPACE_ROOT",
   "COCKPIT_CODEX_CUSTOM_GUIDANCE",
+  "COCKPIT_CLAUDE_SESSION_ROOT",
+  "COCKPIT_CLAUDE_PROJECTS",
+  "COCKPIT_CLAUDE_USER_ROOT",
   "COCKPIT_DEFAULT_PANEL",
   "CODEX_HOME",
   "CODEX_SQLITE_HOME",
@@ -56,6 +62,7 @@ if (forwardedArguments[0] === "--") forwardedArguments.shift();
 
 let activeChild;
 let interruptedSignal;
+let portBindingFailed = false;
 
 function forwardSignal(signal) {
   interruptedSignal = signal;
@@ -570,7 +577,10 @@ function assertCodexFixtureSourcesUnchanged(fixture) {
 async function reservePort() {
   const server = createServer();
   const port = await new Promise((resolve, reject) => {
-    server.once("error", reject);
+    server.once("error", (error) => {
+      portBindingFailed = true;
+      reject(error);
+    });
     server.listen(0, "127.0.0.1", () => {
       const address = server.address();
       if (!address || typeof address === "string") {
@@ -609,8 +619,16 @@ async function runPlaywright(environment) {
   }
 }
 
-async function runScenario({ name, hermesEnabled = false, codexMode, environment = {} }) {
+async function runScenario({
+  name,
+  hermesEnabled = false,
+  codexMode,
+  claudeMode,
+  environment = {},
+}) {
   let codex;
+  let claude;
+  let claudeSnapshot;
   let hermes;
   let hermesSnapshot;
   let exitCode = 1;
@@ -620,18 +638,37 @@ async function runScenario({ name, hermesEnabled = false, codexMode, environment
       hermesSnapshot = snapshotHermesFixtureSources(hermes);
     }
     if (codexMode) codex = createCodexFixture(codexMode);
+    if (claudeMode) {
+      const root = realpathSync(mkdtempSync(path.join(tmpdir(), "cockpit-browser-claude-")));
+      const sessionRoot = path.join(root, "sessions");
+      if (claudeMode === "ready") claude = createClaudeFixture(root);
+      else {
+        const workspaceRoot = path.join(root, "workspace");
+        mkdirSync(workspaceRoot, { mode: 0o700 });
+        if (claudeMode === "empty") mkdirSync(sessionRoot, { mode: 0o700 });
+        claude = {
+          root,
+          sessionRoot,
+          environment: {
+            COCKPIT_CLAUDE_PROJECTS: JSON.stringify([
+              { id: "atlas", name: "Atlas", sessionRoot, workspaceRoot },
+            ]),
+          },
+        };
+      }
+      claudeSnapshot = snapshotTrees([root]);
+    }
 
     const port = await reservePort();
     const baseURL = `http://127.0.0.1:${port}`;
-    const command = process.env.CI
-      ? `pnpm exec next start --hostname 127.0.0.1 --port ${port}`
-      : `pnpm exec next dev --hostname 127.0.0.1 --port ${port}`;
+    const command = `pnpm exec next start --hostname 127.0.0.1 --port ${port}`;
     console.log(`\n[synthetic browser scenario] ${name} at ${baseURL}`);
     exitCode = await runPlaywright({
       ...process.env,
       ...EMPTY_SOURCE_ENVIRONMENT,
       ...(hermes?.environment ?? {}),
       ...(codex?.environment ?? {}),
+      ...(claude?.environment ?? {}),
       ...environment,
       COCKPIT_E2E_BASE_URL: baseURL,
       COCKPIT_E2E_CODEX_AUDIT_LOG: codex?.auditLog ?? "",
@@ -649,12 +686,20 @@ async function runScenario({ name, hermesEnabled = false, codexMode, environment
     try {
       if (hermesSnapshot) assertHermesFixtureSourcesUnchanged(hermesSnapshot);
       if (codex) assertCodexFixtureSourcesUnchanged(codex);
+      if (claude) {
+        assert.deepEqual(
+          snapshotTrees([claude.root]),
+          claudeSnapshot,
+          "Synthetic Claude sources changed during read-only verification.",
+        );
+      }
     } catch (error) {
       console.error(error);
       exitCode = 1;
     } finally {
       if (hermes) removeHermesFixture(hermes);
       if (codex) rmSync(codex.root, { recursive: true, force: true });
+      if (claude) rmSync(claude.root, { recursive: true, force: true });
     }
   }
   return exitCode;
@@ -663,6 +708,15 @@ async function runScenario({ name, hermesEnabled = false, codexMode, environment
 const scenarios = Object.freeze([
   Object.freeze({ name: "hermes-only", hermesEnabled: true }),
   Object.freeze({ name: "codex-only", codexMode: "success" }),
+  Object.freeze({ name: "claude-only", claudeMode: "ready" }),
+  Object.freeze({
+    name: "triple-ready",
+    hermesEnabled: true,
+    codexMode: "success",
+    claudeMode: "ready",
+  }),
+  Object.freeze({ name: "claude-empty", claudeMode: "empty" }),
+  Object.freeze({ name: "claude-missing", claudeMode: "missing" }),
   Object.freeze({ name: "dual-ready", hermesEnabled: true, codexMode: "success" }),
   Object.freeze({
     name: "dual-codex-unavailable",
@@ -681,7 +735,7 @@ const scenarios = Object.freeze([
 
 let exitCode = 0;
 for (const scenario of scenarios) {
-  if (interruptedSignal) {
+  if (interruptedSignal || portBindingFailed) {
     exitCode = 1;
     break;
   }

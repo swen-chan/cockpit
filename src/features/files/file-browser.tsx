@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import type { AgentPanelId } from "@/contracts/agents";
 import type { WorkspaceDirectory, WorkspaceFile } from "@/contracts/cockpit";
 import { workspaceDirectorySchema, workspaceFileSchema } from "@/contracts/source-result";
+import { withClaudeProject } from "@/lib/claude-navigation";
 import { cn } from "@/lib/cn";
 import { isCurrentPanelLocation, parseScopedPayload, scopedApiPath } from "@/lib/scoped-client";
 import { formatShanghaiTime } from "@/lib/time";
@@ -24,12 +25,14 @@ export function FileBrowser({
   initialFile,
   initialPreviewFailure,
   panelId,
+  projectId,
 }: {
   initialDirectory: WorkspaceDirectory;
   initialDirectoryFailure?: string | undefined;
   initialFile: WorkspaceFile | null;
   initialPreviewFailure?: string | undefined;
   panelId: AgentPanelId;
+  projectId?: string;
 }) {
   const [directory, setDirectory] = useState(initialDirectory);
   const [selectedFile, setSelectedFile] = useState(initialFile);
@@ -88,14 +91,14 @@ export function FileBrowser({
     setQuery("");
     try {
       const endpoint = scopedApiPath(panelId, `/files?path=${encodeURIComponent(relativePath)}`);
-      const response = await fetch(endpoint, {
+      const response = await fetch(withClaudeProject(endpoint, projectId), {
         cache: "no-store",
         signal: controller.signal,
       });
       const payload: unknown = await response.json();
       const parsed = parseScopedPayload(payload, panelId, workspaceDirectorySchema);
       if (!response.ok || !parsed) throw new Error("invalid workspace directory");
-      if (!controller.signal.aborted && isCurrentPanelLocation(panelId)) {
+      if (!controller.signal.aborted && isCurrentPanelLocation(panelId, projectId)) {
         shouldFocusDirectoryRoot.current = true;
         setDirectory(parsed);
         setHasUsableDirectory(true);
@@ -103,7 +106,7 @@ export function FileBrowser({
         setDirectoryState("idle");
       }
     } catch {
-      if (!controller.signal.aborted && isCurrentPanelLocation(panelId)) {
+      if (!controller.signal.aborted && isCurrentPanelLocation(panelId, projectId)) {
         setDirectoryFailure("The selected directory could not be safely loaded.");
         setDirectoryState("error");
       }
@@ -133,19 +136,19 @@ export function FileBrowser({
         panelId,
         `/files/preview?path=${encodeURIComponent(entry.path)}`,
       );
-      const response = await fetch(endpoint, {
+      const response = await fetch(withClaudeProject(endpoint, projectId), {
         cache: "no-store",
         signal: controller.signal,
       });
       const payload: unknown = await response.json();
       const parsed = parseScopedPayload(payload, panelId, workspaceFileSchema);
       if (!response.ok || !parsed) throw new Error("invalid workspace preview");
-      if (!controller.signal.aborted && isCurrentPanelLocation(panelId)) {
+      if (!controller.signal.aborted && isCurrentPanelLocation(panelId, projectId)) {
         setSelectedFile(parsed);
         setPreviewState("idle");
       }
     } catch {
-      if (!controller.signal.aborted && isCurrentPanelLocation(panelId)) {
+      if (!controller.signal.aborted && isCurrentPanelLocation(panelId, projectId)) {
         setPreviewFailure("The selected file could not be safely previewed.");
         setPreviewState("error");
       }
