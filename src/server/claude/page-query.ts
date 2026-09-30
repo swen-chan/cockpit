@@ -1,13 +1,14 @@
 import "server-only";
 import { notFound } from "next/navigation";
 import { z } from "zod";
+import { claudeProjectIdSchema } from "@/contracts/agents";
 import type { ClaudePanelDescriptor } from "@/server/panels/registry";
 import { resolveClaudeProject } from "@/server/claude/projects";
 import { parseRelativePath } from "@/server/security/path-policy";
 
 export type ClaudePageSearch = Record<string, string | string[] | undefined>;
 const schema = z.object({
-  project: z.string().min(1).max(64).optional(),
+  project: claudeProjectIdSchema.optional(),
   session: z
     .string()
     .max(6000)

@@ -60,6 +60,18 @@ function projectScope(panel: ClaudePanelDescriptor, project: ClaudeProjectDescri
     .digest("base64url");
 }
 
+function sessionIdFromToken(
+  tokenScope: PanelTokenScope,
+  projectKey: string,
+  token: string,
+): string {
+  const rawId = panelTokenCodec.decodeTask(tokenScope, token);
+  if (!rawId.startsWith(`${projectKey}:`)) throw new SourceSecurityError("invalid_path");
+  const id = rawId.slice(projectKey.length + 1);
+  if (!UUID.test(id)) throw new SourceSecurityError("invalid_path");
+  return id;
+}
+
 function record(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -206,11 +218,15 @@ export async function readClaudeSessionPage(
   panel: ClaudePanelDescriptor,
   cursor?: string | null,
   projectId?: string | null,
+  selectedSession?: string | null,
 ): Promise<ClaudeSessionPage> {
   assertSourceReadAllowed();
   const project = resolveClaudeProject(panel, projectId);
   const projectKey = projectScope(panel, project);
   const tokenScope = scope(panel);
+  const selectedSessionId = selectedSession
+    ? sessionIdFromToken(tokenScope, projectKey, selectedSession)
+    : null;
   let after: { id: string; mtime: number } | null = null;
   if (cursor) {
     try {
@@ -261,7 +277,10 @@ export async function readClaudeSessionPage(
   const selected = remaining.slice(0, PAGE_SIZE);
   const items: ClaudeSessionSummary[] = [];
   for (const file of selected) {
-    const id = panelTokenCodec.encodeTask(tokenScope, `${projectKey}:${file.id}`);
+    const id =
+      file.id === selectedSessionId && selectedSession
+        ? selectedSession
+        : panelTokenCodec.encodeTask(tokenScope, `${projectKey}:${file.id}`);
     try {
       const source = await readEntries(root, file.id);
       const info = await metadata(root, file.id, source.entries);
@@ -447,9 +466,7 @@ export async function readClaudeSession(
   assertSourceReadAllowed();
   const project = resolveClaudeProject(panel, projectId);
   const projectKey = projectScope(panel, project);
-  const rawId = panelTokenCodec.decodeTask(scope(panel), token);
-  if (!rawId.startsWith(`${projectKey}:`)) throw new SourceSecurityError("invalid_path");
-  const id = rawId.slice(projectKey.length + 1);
+  const id = sessionIdFromToken(scope(panel), projectKey, token);
   const root = canonicalizeDirectory(project.sessionRoot);
   const source = await readEntries(root, id);
   const { getSessionMessages } = await import("@anthropic-ai/claude-agent-sdk");

@@ -230,3 +230,33 @@ test("selects the second Job and keeps table overflow inside its region", async 
     ),
   ).toBe(true);
 });
+
+test("previews the selected percent filename without opening its space-named neighbor", async ({
+  page,
+}) => {
+  await page.goto("/agents/hermes/files");
+  await page.getByRole("button", { name: /nested.*Directory/is }).click();
+  await expect(page.getByLabel("Current workspace directory nested")).toBeVisible();
+  const files = [
+    ["report%20draft.md", "literal-percent-file-marker"],
+    ["report draft.md", "space-file-marker"],
+    ["100%.md", "bare-percent-file-marker"],
+  ] as const;
+
+  for (const [filename, marker] of files) {
+    const row = page
+      .locator(".file-list")
+      .getByRole("button")
+      .filter({ has: page.getByText(filename, { exact: true }) });
+    await row.click();
+    await expect(row).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      page.getByRole("heading", { level: 2, name: filename, exact: true }),
+    ).toBeVisible();
+    const preview = page.getByRole("region", { name: `${filename} preview`, exact: true });
+    await expect(preview).toContainText(marker);
+    for (const [, otherMarker] of files) {
+      if (otherMarker !== marker) await expect(preview).not.toContainText(otherMarker);
+    }
+  }
+});

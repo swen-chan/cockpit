@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ConversationBrowser } from "@/features/conversations/conversation-browser";
-import { mockConversations } from "@/lib/mock-data";
+import { mockConversations } from "../helpers/mock-data";
 
 function summary(conversation: (typeof mockConversations)[number]) {
   return {

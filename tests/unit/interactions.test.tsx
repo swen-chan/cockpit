@@ -5,7 +5,7 @@ import { ConversationBrowser } from "@/features/conversations/conversation-brows
 import { FileBrowser } from "@/features/files/file-browser";
 import { JobsBrowser } from "@/features/jobs/jobs-browser";
 import { SystemBrowser } from "@/features/system/system-browser";
-import { mockConversations, mockFiles, mockJobs, mockSystemSources } from "@/lib/mock-data";
+import { mockConversations, mockFiles, mockJobs, mockSystemSources } from "../helpers/mock-data";
 
 const mockDirectory = {
   path: "",

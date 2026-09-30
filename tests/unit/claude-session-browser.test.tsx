@@ -254,6 +254,76 @@ it("searches loaded titles, previews, recorded directory names and branches with
   expect(screen.getByRole("button", { name: /Older investigation/u })).toBeInTheDocument();
 });
 
+it.each([true, false])(
+  "keeps pagination usable for a deep-linked selection; valid detail: %s",
+  async (validDetail) => {
+    const observedAt = "2026-09-28T08:00:00.000Z";
+    const initialPage: ClaudeSessionPage = {
+      items: [],
+      nextCursor: "cursor-Older",
+      observedAt,
+      scope: "Configured Claude Code session directory",
+      limited: false,
+    };
+    const initialDetail: ClaudeSessionDetail | null = validDetail
+      ? {
+          id: "task-Older",
+          title: "Older investigation",
+          directoryName: null,
+          gitBranch: null,
+          messages: [],
+          activities: [],
+          observedAt,
+          updatedAt: observedAt,
+          limited: false,
+          pendingWrite: false,
+        }
+      : null;
+    const nextPage: ClaudeSessionPage = {
+      ...initialPage,
+      nextCursor: null,
+      items: [
+        {
+          id: "task-Older",
+          title: "Older investigation",
+          preview: null,
+          directoryName: null,
+          gitBranch: null,
+          updatedAt: observedAt,
+          issue: null,
+        },
+      ],
+    };
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ panelId: "claude-code", runtime: "claude-code", data: nextPage }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const initialSessionId = validDetail ? "task-Older" : "task-Expired";
+    window.history.replaceState(
+      {},
+      "",
+      `/agents/claude-code/conversations?project=atlas&session=${initialSessionId}`,
+    );
+    render(
+      <ClaudeSessionBrowser
+        initialPage={initialPage}
+        projectId="atlas"
+        initialDetail={initialDetail}
+        initialSessionId={initialSessionId}
+        initialFailure={validDetail ? undefined : "The requested relative path is invalid."}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+    const older = await screen.findByRole("button", { name: /Older investigation/u });
+    expect(older).toHaveAttribute("aria-pressed", String(validDetail));
+    expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
+      `/api/agents/claude-code/conversations?cursor=cursor-Older${validDetail ? "&session=task-Older" : ""}&project=atlas`,
+      expect.objectContaining({ cache: "no-store", signal: expect.any(AbortSignal) }),
+    );
+  },
+);
+
 it.each([false, true])(
   "shows concrete operations with folded inert output; returning to a message: %s",
   (returnToMessage) => {

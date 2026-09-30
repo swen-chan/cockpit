@@ -8,7 +8,7 @@ import type {
   WorkspaceDirectory,
 } from "@/contracts/cockpit";
 import { overviewSnapshotSchema } from "@/contracts/source-result";
-import { mockConversations, mockFiles, mockJobs, mockSystemSources } from "@/lib/mock-data";
+import { mockConversations, mockFiles, mockJobs, mockSystemSources } from "../helpers/mock-data";
 import { SourceSecurityError } from "@/server/security/errors";
 import { loadOverviewSnapshot, type OverviewReaders } from "@/server/services/overview";
 

@@ -635,6 +635,13 @@ async function runScenario({
   try {
     if (hermesEnabled) {
       hermes = createHermesFixture(`cockpit-browser-${name}-hermes-`);
+      for (const [filename, content] of [
+        ["report%20draft.md", "literal-percent-file-marker"],
+        ["report draft.md", "space-file-marker"],
+        ["100%.md", "bare-percent-file-marker"],
+      ]) {
+        writeFileSync(path.join(hermes.workspace, "nested", filename), content, "utf8");
+      }
       hermesSnapshot = snapshotHermesFixtureSources(hermes);
     }
     if (codexMode) codex = createCodexFixture(codexMode);

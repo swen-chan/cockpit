@@ -10,7 +10,7 @@ import {
   systemSourceSchema,
   systemSnapshotSchema,
 } from "@/contracts/source-result";
-import { mockConversations, mockJobs, mockSystemSources } from "@/lib/mock-data";
+import { mockConversations, mockJobs, mockSystemSources } from "../helpers/mock-data";
 
 describe("browser-safe fixture contracts", () => {
   it("accepts the bounded fixture DTOs", () => {

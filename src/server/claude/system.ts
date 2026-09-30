@@ -43,10 +43,6 @@ interface SourceRoot {
   prefix: string;
 }
 
-function protocolPath(relativePath: string): string {
-  return relativePath.split("/").map(encodeURIComponent).join("/");
-}
-
 function isMissing(error: unknown): boolean {
   return error instanceof SourceSecurityError && error.code === "missing_source";
 }
@@ -72,7 +68,7 @@ async function addDocument(
   let truncated = false;
   let status: ClaudeSystemSource["state"] = "ready";
   try {
-    const document = await readNamedTextSource(source.root, protocolPath(relativePath), {
+    const document = await readNamedTextSource(source.root, relativePath, {
       maxBytes: Math.min(MAX_DOCUMENT_BYTES, state.bytesRemaining),
       maxCharacters: MAX_DOCUMENT_CHARACTERS,
     });
@@ -109,30 +105,26 @@ async function addDocument(
 
 async function entries(state: ScanState, source: SourceRoot, relativePath: string) {
   try {
-    return await withExistingWorkspaceDirectory(
-      source.root,
-      protocolPath(relativePath),
-      ({ absolutePath }) => {
-        const directory = opendirSync(absolutePath);
-        const found: { name: string; directory: boolean; file: boolean }[] = [];
-        try {
-          for (;;) {
-            const entry = directory.readSync();
-            if (!entry) break;
-            if (state.entriesRemaining === 0) {
-              state.limited = true;
-              break;
-            }
-            state.entriesRemaining -= 1;
-            if (hasExcludedSegment([entry.name])) continue;
-            found.push({ name: entry.name, directory: entry.isDirectory(), file: entry.isFile() });
+    return await withExistingWorkspaceDirectory(source.root, relativePath, ({ absolutePath }) => {
+      const directory = opendirSync(absolutePath);
+      const found: { name: string; directory: boolean; file: boolean }[] = [];
+      try {
+        for (;;) {
+          const entry = directory.readSync();
+          if (!entry) break;
+          if (state.entriesRemaining === 0) {
+            state.limited = true;
+            break;
           }
-        } finally {
-          directory.closeSync();
+          state.entriesRemaining -= 1;
+          if (hasExcludedSegment([entry.name])) continue;
+          found.push({ name: entry.name, directory: entry.isDirectory(), file: entry.isFile() });
         }
-        return found.sort((left, right) => left.name.localeCompare(right.name));
-      },
-    );
+      } finally {
+        directory.closeSync();
+      }
+      return found.sort((left, right) => left.name.localeCompare(right.name));
+    });
   } catch (error) {
     if (!isMissing(error)) state.unavailableScopes.add(source.scope);
     return [];

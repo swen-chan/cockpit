@@ -23,10 +23,15 @@ It must run without elevated privileges; elevated execution is unsupported.
 LAN exposure, port forwarding, tunnels, reverse proxies, cloud hosting, and
 mutually untrusted users are outside the supported boundary.
 
-`COCKPIT_SOURCE_PRESET`, `COCKPIT_SOURCE_MANIFEST`, `COCKPIT_HERMES_HOME`,
-`HERMES_HOME`, and `COCKPIT_WORKSPACE_ROOT` are trusted, operator-controlled
-startup configuration. They cannot be selected through the browser or an HTTP
-request.
+All source paths are trusted, operator-controlled startup configuration. This
+includes Hermes's `COCKPIT_SOURCE_PRESET`, `COCKPIT_SOURCE_MANIFEST`,
+`COCKPIT_HERMES_HOME`, `HERMES_HOME`, and `COCKPIT_WORKSPACE_ROOT`; Codex's
+`COCKPIT_CODEX_HOME`, `COCKPIT_CODEX_WORKSPACE_ROOT`, and
+`COCKPIT_CODEX_CUSTOM_GUIDANCE`; and Claude's `COCKPIT_CLAUDE_PROJECTS` and
+`COCKPIT_CLAUDE_USER_ROOT`. The browser cannot set these values or grant access to
+another path. `COCKPIT_DEFAULT_PANEL` selects the initial fallback among configured
+panels; it grants no source access. Multiple panels and projects still serve one
+trusted local operator.
 
 Examples of in-scope security issues include:
 
@@ -53,12 +58,6 @@ resource limits before opening, then validates the owned copy. It does not
 require the source database or WAL to stay unchanged during the operation.
 Controlled tests without another writer verify that Cockpit preserves source
 content. JSONL rollouts retain their separate stable-copy checks.
-
-`COCKPIT_CODEX_HOME`, `COCKPIT_CODEX_WORKSPACE_ROOT`,
-`COCKPIT_CODEX_CUSTOM_GUIDANCE`, and `COCKPIT_DEFAULT_PANEL` are trusted,
-operator-controlled startup settings, not browser-supplied source paths.
-Selecting an already configured panel does not grant access to another path.
-Multiple panels still serve one trusted local operator, not multiple users.
 
 That read may use only SQLite's narrow coordination behavior: SQLite may create
 or restore an empty `-wal` companion and may create or update the disposable

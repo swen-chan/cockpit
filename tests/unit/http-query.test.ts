@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertNoQuery,
+  parseClaudeQuery,
   parseDirectoryQuery,
   parsePreviewQuery,
   parseScopedConversationPageQuery,
@@ -70,15 +71,44 @@ describe("HTTP query boundary", () => {
       parseDirectoryQuery(request("/api/agents/hermes/files?path=docs&__proto__=ignored")),
     ).toThrowError(expect.objectContaining({ code: "invalid_path" }));
 
-    for (const path of ["..%252Foutside", "%2Fabsolute", ".env", "docs%2F..%2Foutside"]) {
+    for (const path of [
+      "..%252Foutside",
+      "%252e%252e/outside",
+      "%2e%2e/outside",
+      "%2Fabsolute",
+      ".env",
+      "docs%2F..%2Foutside",
+    ]) {
       expect(() =>
         parsePreviewQuery(request(`/api/agents/hermes/files/preview?path=${path}`)),
+      ).toThrowError(expect.objectContaining({ code: expect.any(String) }));
+      expect(() =>
+        parseClaudeQuery(
+          request(`/api/agents/claude-code/files/preview?project=example&path=${path}`),
+          "preview",
+        ),
       ).toThrowError(expect.objectContaining({ code: expect.any(String) }));
     }
     expect(() => parsePreviewQuery(request("/api/agents/hermes/files/preview"))).toThrowError(
       expect.objectContaining({ code: "invalid_path" }),
     );
   });
+
+  it.each(["report%20draft.md", "report draft.md", "100%.md", "docs%20notes/report.md"])(
+    "decodes a workspace query once and preserves its literal filename: %s",
+    (relativePath) => {
+      const query = new URLSearchParams({ path: relativePath });
+      expect(parsePreviewQuery(request(`/api/agents/hermes/files/preview?${query}`))).toBe(
+        relativePath,
+      );
+      expect(
+        parseClaudeQuery(
+          request(`/api/agents/claude-code/files/preview?project=example&${query}`),
+          "preview",
+        ).path,
+      ).toBe(relativePath);
+    },
+  );
 
   it("rejects query input on parameterless endpoints", () => {
     expect(() => assertNoQuery(request("/api/agents/hermes/jobs"))).not.toThrow();

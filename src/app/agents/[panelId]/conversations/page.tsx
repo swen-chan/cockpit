@@ -107,8 +107,15 @@ async function ClaudeConversationsSurface({
   let failure: ReturnType<typeof toSafeDiagnostic> | null = null;
   let initialDetail = null;
   let detailFailure: string | undefined;
+  if (sessionId) {
+    try {
+      initialDetail = await readClaudeSession(panel, sessionId, projectId);
+    } catch (error) {
+      detailFailure = toSafeDiagnostic(error, "claude-conversations").message;
+    }
+  }
   try {
-    page = await readClaudeSessionPage(panel, null, projectId);
+    page = await readClaudeSessionPage(panel, null, projectId, initialDetail?.id);
   } catch (error) {
     failure = toSafeDiagnostic(error, "claude-conversations");
     logSafeDiagnostic({ ...failure, panelId: panel.id });
@@ -121,13 +128,6 @@ async function ClaudeConversationsSurface({
       </div>
     );
   if (!page) throw new Error("Claude conversations did not resolve a safe state.");
-  if (sessionId) {
-    try {
-      initialDetail = await readClaudeSession(panel, sessionId, projectId);
-    } catch (error) {
-      detailFailure = toSafeDiagnostic(error, "claude-conversations").message;
-    }
-  }
   return (
     <div className="page-wrap">
       <ClaudeConversationsHeader observedAt={page.observedAt} />

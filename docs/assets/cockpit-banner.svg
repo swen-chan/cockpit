@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 520" role="img" aria-labelledby="title description">
   <title id="title">Cockpit</title>
-  <desc id="description">See what our agents are doing. A local, read-only dashboard for your agents. Supports Hermes Agent and Codex.</desc>
+  <desc id="description">See what our agents are doing. A local, read-only dashboard for your agents. Supports Hermes Agent, Codex, and Claude Code. Available views depend on the agent.</desc>
 
   <rect width="1600" height="520" fill="#f3f1ea"/>
   <rect x="2" y="2" width="1596" height="516" fill="none" stroke="#0e0e0e" stroke-width="4"/>
@@ -29,6 +29,9 @@
     <rect x="208" width="128" height="40" fill="#0e0e0e"/>
     <rect x="222" y="14" width="12" height="12" fill="#c6ff3d"/>
     <text x="247" y="26" fill="#f3f1ea">CODEX</text>
+    <rect x="352" width="184" height="40" fill="#0e0e0e"/>
+    <rect x="366" y="14" width="12" height="12" fill="#c6ff3d"/>
+    <text x="391" y="26" fill="#f3f1ea">CLAUDE CODE</text>
   </g>
 
   <g transform="translate(1055 154)">
@@ -59,7 +62,7 @@
       <line x1="0" y1="275" x2="480" y2="275" stroke="#b9b5a9"/>
       <rect x="17" y="292" width="15" height="15" fill="#c6ff3d" stroke="#0e0e0e"/>
       <text x="53" y="308" fill="#0e0e0e">JOBS</text>
-      <text x="456" y="308" fill="#625f59" text-anchor="end">SCHEDULE</text>
+      <text x="456" y="308" fill="#625f59" text-anchor="end">HERMES ONLY</text>
       <line x1="0" y1="328" x2="480" y2="328" stroke="#0e0e0e" stroke-width="2"/>
     </g>
   </g>

@@ -241,30 +241,20 @@ function resolveMissingAbsolutePath(
   };
 }
 
+/** Validate filesystem-relative text after the HTTP boundary has decoded its query. */
 export function parseRelativePath(input: string): string[] {
-  if (input.length > SOURCE_LIMITS.maxPathCharacters || input.includes("\0")) {
-    throw new SourceSecurityError("invalid_path");
-  }
-  if (encodedDangerousPathPart.test(input)) throw new SourceSecurityError("invalid_path");
-
-  let decoded: string;
-  try {
-    decoded = decodeURIComponent(input);
-  } catch {
-    throw new SourceSecurityError("invalid_path");
-  }
-
   if (
-    encodedDangerousPathPart.test(decoded) ||
-    decoded.includes("\0") ||
-    decoded.includes("\\") ||
-    path.posix.isAbsolute(decoded)
+    input.length > SOURCE_LIMITS.maxPathCharacters ||
+    encodedDangerousPathPart.test(input) ||
+    input.includes("\0") ||
+    input.includes("\\") ||
+    path.posix.isAbsolute(input)
   ) {
     throw new SourceSecurityError("invalid_path");
   }
 
-  if (decoded === "") return [];
-  const segments = decoded.split("/");
+  if (input === "") return [];
+  const segments = input.split("/");
   if (segments.some((segment) => segment === "" || segment === "." || segment === "..")) {
     throw new SourceSecurityError("invalid_path");
   }
@@ -303,11 +293,10 @@ function assertAllowedCanonicalPath(canonicalRoot: string, absolutePath: string)
 /**
  * Prove a protocol-derived path against one server-configured workspace root.
  *
- * Unlike parseRelativePath, this function consumes filesystem path text rather
- * than URL input, so percent-encoded-looking names remain literal. Relative
- * candidates require an independently proven existing directory base. Missing
- * candidates are accepted only when explicitly requested and only after their
- * nearest existing directory ancestor has passed the same canonical policy.
+ * This consumes filesystem path text, so percent-encoded-looking names remain
+ * literal. Relative candidates require an independently proven existing directory
+ * base. Missing candidates are accepted only when explicitly requested and only
+ * after their nearest existing directory ancestor has passed the same canonical policy.
  */
 export function resolveApprovedWorkspacePath(
   root: string,
